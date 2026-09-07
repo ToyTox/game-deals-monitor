@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Game {
+  id              Int      @id @default(autoincrement())
+  title           String   @unique
+  platform        String   @db.Text
+  originalPrice   Float?
+  currentPrice    Float?
+  discountPercent Float    @default(0)
+  isFree          Boolean  @default(false)
+  gameUrl         String   @db.Text
+  imageUrl        String?  @db.Text
+  description     String?  @db.Text
+
+  saleEndDate     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  priceHistory    PriceHistory[]
+
+  @@index([platform])
+  @@index([discountPercent])
+  @@index([isFree])
+  @@index([createdAt])
+}
+
+model PriceHistory {
+  id              Int      @id @default(autoincrement())
+  gameId          Int
+  game            Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  oldPrice        Float?
+  newPrice        Float?
+  oldDiscount     Float    @default(0)
+  newDiscount     Float    @default(0)
+
+  createdAt       DateTime @default(now())
+
+  @@index([gameId])
+  @@index([createdAt])
+}
+
+model UpdateLog {
+  id              Int      @id @default(autoincrement())
+  platform        String   @db.Text
+  gamesCount      Int
+  newGames        Int
+  updatedGames    Int
+  freedGames      Int
+
+  startTime       DateTime
+  endTime         DateTime
+  duration        Int
+  status          String
+  error           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+
+  @@index([platform])
+  @@index([createdAt])
+}

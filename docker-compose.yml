@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: game-monitor-db
+    environment:
+      POSTGRES_USER: gameadmin
+      POSTGRES_PASSWORD: gamepassword
+      POSTGRES_DB: game_deals
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gameadmin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: game-monitor-api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://gameadmin:gamepassword@postgres:5432/game_deals?schema=public
+      NODE_ENV: production
+      PORT: 3000
+      CRON_SCHEDULE: "0 6 * * *"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    container_name: game-monitor-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+volumes:
+  postgres_data:
