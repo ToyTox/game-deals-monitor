@@ -56,7 +56,7 @@ export class GOGParser extends BaseParser {
               currentPrice: item.finalPrice,
               discountPercent: item.discount,
               isFree: item.finalPrice === 0,
-              gameUrl: https://www.gog.com${item.url},
+              gameUrl: `https://www.gog.com${item.url}`,
               imageUrl: item.image,
             });
           }
@@ -72,7 +72,7 @@ export class GOGParser extends BaseParser {
       const freeGames = await this.parseFreeGames();
       games.push(...freeGames);
 
-      console.log(📊 GOG: найдено ${games.length} игр);
+      console.log(`📊 GOG: найдено ${games.length} игр`);
       return games;
     } catch (error) {
       console.error('❌ GOG парсер ошибка:', error);
@@ -110,7 +110,7 @@ export class GOGParser extends BaseParser {
             currentPrice: 0,
             discountPercent: 100,
             isFree: true,
-            gameUrl: https://www.gog.com${item.url},
+            gameUrl: `https://www.gog.com${item.url}`,
             imageUrl: item.image,
           });
         }

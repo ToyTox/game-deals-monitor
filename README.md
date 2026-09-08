@@ -46,10 +46,10 @@ npm run prisma:migrate     # первый раз спросит имя мигр�
 npm run dev
 ```
 
-Сервер поднимется на `http://localhost:3000`. Проверить:
+Сервер поднимется на `http://localhost:3000`. По этому адресу открывается веб-интерфейс: статистика, ручки всех API-методов и карточки найденных игр. JSON-карта эндпоинтов переехала на `/api`.
 
 ```bash
-curl http://localhost:3000/
+curl http://localhost:3000/api
 curl http://localhost:3000/api/admin/health
 ```
 
@@ -77,7 +77,7 @@ curl http://localhost:3000/api/admin/health
 
 | Команда | Что делает |
 |---|---|
-| `npm run dev` | Запуск в режиме разработки (`ts-node --esm src/index.ts`) |
+| `npm run dev` | Запуск в режиме разработки с автоперезапуском (`tsx watch src/index.ts`) |
 | `npm run build` | Компиляция TypeScript в `dist/` |
 | `npm start` | Запуск собранной версии (`node dist/index.js`) |
 | `npm run prisma:generate` | Генерация Prisma-клиента |
@@ -91,6 +91,10 @@ curl http://localhost:3000/api/admin/health
 
 ### `GET /`
 
+Веб-интерфейс (`public/index.html`): статистика, панель ручек для всех методов API и карточки игр.
+
+### `GET /api`
+
 Карта эндпоинтов и метаданные сервиса.
 
 ```json
@@ -99,6 +103,7 @@ curl http://localhost:3000/api/admin/health
   "version": "1.0.0",
   "description": "API для мониторинга скидок и бесплатных игр",
   "endpoints": {
+    "ui": "/",
     "games": "/api/games",
     "freeGames": "/api/games/free",
     "topDiscounts": "/api/games/top-discounts",
@@ -441,7 +446,7 @@ curl -X POST http://localhost:3000/api/admin/parse \
 
 | Площадка | Источник |
 |---|---|
-| Steam | `GET https://store.steampowered.com/api/featuredcategories/` |
+| Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=us&l=en` — категории `specials`, `top_sellers`, `new_releases` |
 | Epic Games | `POST https://www.epicgames.com/graphql` (запрос `Catalog.searchStore`, первые 100 позиций) |
 | GOG | `GET https://api.gog.com/v2/games/products` — до 5 страниц по 50 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`priceRange: '0,0'`) |
 
@@ -527,6 +532,7 @@ game-deals-monitor/
 ├── prisma/
 │   ├── migrations/          # миграции Prisma
 │   └── schema.prisma        # модели Game, PriceHistory, UpdateLog
+├── public/                  # веб-интерфейс (index.html, app.js, styles.css)
 ├── src/
 │   ├── index.ts             # точка входа: Express, cron, graceful shutdown
 │   ├── database.ts          # singleton PrismaClient (с логами вне production)
@@ -550,7 +556,6 @@ game-deals-monitor/
 
 ## ⚠️ Известные ограничения и TODO
 
-- **Steam-парсер сейчас возвращает 0 игр.** Ответ `store.steampowered.com/api/featuredcategories/` больше не содержит полей `featured_win` / `featured_linux` / `featured_mac` / `featured`, которые ждёт `src/parsers/steamParsers.ts`; актуальные ключи — `specials`, `top_sellers`, `new_releases`, `coming_soon`. Парсер отрабатывает без ошибок и пишет успешный `UpdateLog`, но данных не приносит.
 - **`EpicParser.parseFreeGames()` — пустая заглушка.** Метод объявлен, содержит только комментарий и всегда возвращает пустой массив, так что еженедельные раздачи Epic не собираются.
 - **Поиск регистрозависим на некоторых БД.** `GameService.search()` приводит запрос к нижнему регистру и использует `contains` без `mode: 'insensitive'` (Prisma не поддерживает его для SQLite). Фактическое поведение зависит от коллации БД: в SQLite сравнение по умолчанию регистрозависимо для не-ASCII, в PostgreSQL — регистрозависимо всегда.
 - **N+1 в статистике.** `getStats()` в цикле по платформам делает по два `count`-запроса на каждую. На нынешних объёмах не критично, но масштабируется линейно по числу площадок.

@@ -5,6 +5,7 @@ yarn.lock
 .env.local
 .env.*.local
 dist/
+src/generated/
 build/
 *.tsbuildinfo
 *.db

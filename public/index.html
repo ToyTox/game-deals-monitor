@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game Deals Monitor</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🎮 Game Deals Monitor</h1>
+      <div class="header-controls">
+        <div class="health-status">
+          <span id="health-dot" class="fail"></span>
+          <span id="health-text">Загрузка…</span>
+        </div>
+        <button id="refresh-all">Обновить всё</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Statistics Section -->
+    <section class="stats-section">
+      <h2>Статистика</h2>
+      <div id="stats-tiles" class="stats-tiles"></div>
+      <div id="stats-platforms" class="stats-platforms"></div>
+      <div id="stats-top" class="stats-top"></div>
+      <div class="stats-actions">
+        <button id="btn-stats">Обновить статистику</button>
+        <button id="btn-health">Проверить health</button>
+      </div>
+    </section>
+
+    <!-- API Endpoints Section -->
+    <section class="api-section">
+      <h2>Ручки API</h2>
+      <div class="api-cards">
+
+        <!-- GET /api/games -->
+        <div class="api-card">
+          <h3>GET /api/games</h3>
+          <form id="form-games">
+            <div class="form-group">
+              <label>Платформа:</label>
+              <select id="f-platform"></select>
+            </div>
+            <div class="form-group">
+              <label>Минимальная скидка (%):</label>
+              <input id="f-min-discount" type="number" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label>
+                <input id="f-free" type="checkbox">
+                Только бесплатные
+              </label>
+            </div>
+            <div class="form-group">
+              <label>Лимит:</label>
+              <input id="f-limit" type="number" value="20" min="1">
+            </div>
+            <div class="form-group">
+              <label>Смещение:</label>
+              <input id="f-offset" type="number" value="0" min="0">
+            </div>
+            <div class="form-actions">
+              <button id="btn-games" type="button">Показать</button>
+              <button id="btn-prev" type="button">← Назад</button>
+              <button id="btn-next" type="button">Вперёд →</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/free -->
+        <div class="api-card">
+          <h3>GET /api/games/free</h3>
+          <form id="form-free">
+            <div class="form-group">
+              <label>Лимит:</label>
+              <input id="f-free-limit" type="number" value="20" min="1">
+            </div>
+            <div class="form-actions">
+              <button id="btn-free" type="button">Показать</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/top-discounts -->
+        <div class="api-card">
+          <h3>GET /api/games/top-discounts</h3>
+          <form id="form-top">
+            <div class="form-group">
+              <label>Лимит:</label>
+              <input id="f-top-limit" type="number" value="20" min="1">
+            </div>
+            <div class="form-actions">
+              <button id="btn-top" type="button">Показать</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/platform/:name -->
+        <div class="api-card">
+          <h3>GET /api/games/platform/:name</h3>
+          <form id="form-platform">
+            <div class="form-group">
+              <label>Платформа:</label>
+              <select id="f-platform-name"></select>
+            </div>
+            <div class="form-group">
+              <label>Лимит:</label>
+              <input id="f-platform-limit" type="number" value="20" min="1">
+            </div>
+            <div class="form-actions">
+              <button id="btn-platform" type="button">Показать</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/search -->
+        <div class="api-card">
+          <h3>GET /api/games/search</h3>
+          <form id="form-search">
+            <div class="form-group">
+              <label>Поиск:</label>
+              <input id="f-search" type="text" placeholder="минимум 2 символа">
+            </div>
+            <div class="form-actions">
+              <button id="btn-search" type="button">Найти</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/:title -->
+        <div class="api-card">
+          <h3>GET /api/games/:title</h3>
+          <form id="form-title">
+            <div class="form-group">
+              <label>Название:</label>
+              <input id="f-title" type="text">
+            </div>
+            <div class="form-actions">
+              <button id="btn-title" type="button">Показать игру</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/games/:title/price-history -->
+        <div class="api-card">
+          <h3>GET /api/games/:title/price-history</h3>
+          <form id="form-history">
+            <div class="form-group">
+              <label>Название:</label>
+              <input id="f-history-title" type="text">
+            </div>
+            <div class="form-actions">
+              <button id="btn-history" type="button">История цен</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/admin/updates -->
+        <div class="api-card">
+          <h3>GET /api/admin/updates</h3>
+          <form id="form-updates">
+            <div class="form-group">
+              <label>Лимит:</label>
+              <input id="f-updates-limit" type="number" value="20" min="1">
+            </div>
+            <div class="form-actions">
+              <button id="btn-updates" type="button">Логи обновлений</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- GET /api/admin/platforms -->
+        <div class="api-card">
+          <h3>GET /api/admin/platforms</h3>
+          <form id="form-platforms">
+            <div class="form-actions">
+              <button id="btn-platforms" type="button">Список платформ</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- POST /api/admin/parse -->
+        <div class="api-card">
+          <h3>POST /api/admin/parse</h3>
+          <form id="form-parse">
+            <div class="form-group">
+              <label>Платформа:</label>
+              <select id="f-parse-platform"></select>
+            </div>
+            <div class="form-actions">
+              <button id="btn-parse" type="button">Запустить парсинг</button>
+              <span id="parse-status"></span>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section">
+      <h2 id="result-title"></h2>
+      <div id="result-meta" class="result-meta"></div>
+      <div id="result-state"></div>
+      <div id="games-grid" class="grid"></div>
+      <div id="result-table"></div>
+      <details>
+        <summary>Сырой JSON</summary>
+        <pre id="raw-json"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

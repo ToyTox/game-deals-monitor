@@ -7,14 +7,15 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 COPY prisma ./prisma
 
-RUN npm ci --only=production
+RUN npm ci
 
 COPY src ./src
+COPY public ./public
 COPY tsconfig.json .
 
-RUN npm run build
-
 RUN npx prisma generate
+
+RUN npm run build
 
 EXPOSE 3000
 

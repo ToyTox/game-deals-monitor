@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -13,22 +15,29 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Статика лежит в корне проекта: src/ (tsx) и dist/ (node) — оба на уровень ниже
+const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
+
 // Middleware
 app.use(cors());
 app.use(morgan('combined'));
 app.use(express.json());
+
+// Веб-интерфейс (должен идти до роутеров, чтобы "/" отдавал index.html)
+app.use(express.static(PUBLIC_DIR));
 
 // Routes
 app.use('/api/games', gamesRouter);
 app.use('/api/admin', adminRouter);
 
 // Root endpoint
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.json({
     name: 'Game Deals Monitor API',
     version: '1.0.0',
     description: 'API для мониторинга скидок и бесплатных игр',
     endpoints: {
+      ui: '/',
       games: '/api/games',
       freeGames: '/api/games/free',
       topDiscounts: '/api/games/top-discounts',
@@ -56,7 +65,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Scheduler - запуск парсеров по расписанию
 const cronSchedule = process.env.CRON_SCHEDULE || '0 6 * * *';
 
-console.log(⏰ Расписание парсеров: "${cronSchedule}");
+console.log(`⏰ Расписание парсеров: "${cronSchedule}"`);
 
 cron.schedule(cronSchedule, async () => {
   console.log('\n' + '═'.repeat(50));
@@ -76,7 +85,7 @@ const runOnStartup = process.env.RUN_ON_STARTUP !== 'false';
 const startServer = async () => {
   try {
     // Проверить подключение к БД
-    await prisma.$queryRawSELECT 1;
+    await prisma.$queryRaw`SELECT 1`;
     console.log('✅ База данных подключена');
 
     if (runOnStartup) {
@@ -88,8 +97,8 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log('\n' + '═'.repeat(50));
-      console.log(✨ Game Deals Monitor запущен на порту ${PORT});
-      console.log(📍 http://localhost:${PORT});
+      console.log(`✨ Game Deals Monitor запущен на порту ${PORT}`);
+      console.log(`📍 http://localhost:${PORT}`);
       console.log('═'.repeat(50) + '\n');
     });
   } catch (error) {

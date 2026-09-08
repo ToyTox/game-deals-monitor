@@ -164,7 +164,7 @@ export class GameService {
     });
 
     if (!game) {
-      throw new Error(Игра "${gameTitle}" не найдена);
+      throw new Error(`Игра "${gameTitle}" не найдена`);
     }
 
     return prisma.priceHistory.findMany({

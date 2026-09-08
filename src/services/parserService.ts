@@ -1,7 +1,7 @@
 import { BaseParser } from '../parsers/BaseParsers.js';
-import SteamParser from '../parsers/steamParser.js';
-import EpicParser from '../parsers/epicParser.js';
-import GOGParser from '../parsers/gogParser.js';
+import SteamParser from '../parsers/steamParsers.js';
+import EpicParser from '../parsers/epicParsers.js';
+import GOGParser from '../parsers/gogParsers.js';
 import { UpdateResult } from '../types.js';
 
 export class ParserService {
@@ -32,7 +32,7 @@ export class ParserService {
           successResults.push(result.value);
         } else {
           errors.push(
-            ${this.parsers[index].constructor.name}: ${result.reason.message}
+            `${this.parsers[index].constructor.name}: ${result.reason.message}`
           );
         }
       });
@@ -49,10 +49,10 @@ export class ParserService {
       let totalFreed = 0;
 
       for (const result of successResults) {
-        console.log(  ${result.platform.toUpperCase()}: ${result.total} игр);
-        console.log(    ├─ Новых: ${result.new});
-        console.log(    ├─ Обновлено: ${result.updated});
-        console.log(    └─ В бесплатные: ${result.freed});
+        console.log(`  ${result.platform.toUpperCase()}: ${result.total} игр`);
+        console.log(`    ├─ Новых: ${result.new}`);
+        console.log(`    ├─ Обновлено: ${result.updated}`);
+        console.log(`    └─ В бесплатные: ${result.freed}`);
 
         totalGames += result.total;
         totalNew += result.new;
@@ -61,13 +61,13 @@ export class ParserService {
       }
 
       console.log('━'.repeat(50));
-      console.log(✅ Всего обработано: ${totalGames} игр);
-      console.log(   Новых: ${totalNew}, Обновлено: ${totalUpdated}, Освобождено: ${totalFreed});
-      console.log(⏱️  Время выполнения: ${duration}ms);
+      console.log(`✅ Всего обработано: ${totalGames} игр`);
+      console.log(`   Новых: ${totalNew}, Обновлено: ${totalUpdated}, Освобождено: ${totalFreed}`);
+      console.log(`⏱️  Время выполнения: ${duration}ms`);
 
       if (errors.length > 0) {
         console.log('\n⚠️  Ошибки:');
-        errors.forEach((error) => console.log(  - ${error}));
+        errors.forEach((error) => console.log(`  - ${error}`));
       }
 
       console.log('━'.repeat(50));
@@ -85,7 +85,7 @@ export class ParserService {
     );
 
     if (!parser) {
-      throw new Error(Парсер для платформы ${platform} не найден);
+      throw new Error(`Парсер для платформы ${platform} не найден`);
     }
 
     return parser.run();

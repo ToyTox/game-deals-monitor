@@ -98,7 +98,7 @@ export abstract class BaseParser {
       });
 
       console.log(
-        ✅ ${this.name}: ${games.length} игр (новых: ${newCount}, обновлено: ${updatedCount}, в бесплатные: ${freedCount}) за ${duration}ms
+        `✅ ${this.name}: ${games.length} игр (новых: ${newCount}, обновлено: ${updatedCount}, в бесплатные: ${freedCount}) за ${duration}ms`
       );
 
       return {
@@ -127,13 +127,13 @@ export abstract class BaseParser {
         },
       });
 
-      console.error(❌ ${this.name} ошибка:, error);
+      console.error(`❌ ${this.name} ошибка:`, error);
       throw error;
     }
   }
 
   async run(): Promise<UpdateResult> {
-    console.log(🔄 Запуск ${this.name}...);
+    console.log(`🔄 Запуск ${this.name}...`);
     const games = await this.parse();
     return this.saveGames(games);
   }

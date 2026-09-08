@@ -51,7 +51,7 @@ router.post('/parse', async (req: Request, res: Response) => {
     if (platform) {
       const result = await parserService.parsePlatform(platform);
       res.json({
-        message: Парсер ${platform} успешно завершен,
+        message: `Парсер ${platform} успешно завершен`,
         result,
       });
     } else {

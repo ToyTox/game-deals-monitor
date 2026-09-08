@@ -44,7 +44,7 @@ export class EpicParser extends BaseParser {
       const response = await axios.post<EpicResponse>(
         'https://www.epicgames.com/graphql',
         {
-          query:
+          query: `
             query {
               Catalog {
                 searchStore(first: 100, sortBy: NAME) {
@@ -74,7 +74,7 @@ export class EpicParser extends BaseParser {
                 }
               }
             }
-          ,
+          `,
         },
         {
           headers: {
@@ -101,7 +101,7 @@ export class EpicParser extends BaseParser {
             currentPrice: currentPrice > 0 ? currentPrice / 100 : 0,
             discountPercent: discount,
             isFree: currentPrice === 0,
-            gameUrl: https://www.epicgames.com/store/en-US/p/${item.id},
+            gameUrl: `https://www.epicgames.com/store/en-US/p/${item.id}`,
             imageUrl: headerImage,
           });
         }
@@ -110,7 +110,7 @@ export class EpicParser extends BaseParser {
       const freeGames = await this.parseFreeGames();
       games.push(...freeGames);
 
-      console.log(📊 Epic Games: найдено ${games.length} игр);
+      console.log(`📊 Epic Games: найдено ${games.length} игр`);
       return games;
     } catch (error) {
       console.error('❌ Epic Games парсер ошибка:', error);

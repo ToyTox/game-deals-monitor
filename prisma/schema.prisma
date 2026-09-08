@@ -1,23 +1,25 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Game {
   id              Int      @id @default(autoincrement())
   title           String   @unique
-  platform        String   @db.Text
+  platform        String
   originalPrice   Float?
   currentPrice    Float?
   discountPercent Float    @default(0)
   isFree          Boolean  @default(false)
-  gameUrl         String   @db.Text
-  imageUrl        String?  @db.Text
-  description     String?  @db.Text
+  gameUrl         String
+  imageUrl        String?
+  description     String?
 
   saleEndDate     DateTime?
   createdAt       DateTime @default(now())
@@ -49,7 +51,7 @@ model PriceHistory {
 
 model UpdateLog {
   id              Int      @id @default(autoincrement())
-  platform        String   @db.Text
+  platform        String
   gamesCount      Int
   newGames        Int
   updatedGames    Int
@@ -59,7 +61,7 @@ model UpdateLog {
   endTime         DateTime
   duration        Int
   status          String
-  error           String?  @db.Text
+  error           String?
 
   createdAt       DateTime @default(now())
 
