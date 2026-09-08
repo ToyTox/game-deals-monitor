@@ -9,50 +9,89 @@ datasource db {
   provider = "sqlite"
 }
 
+/// Каноническая игра, одна на все магазины, с нормализованным названием для сопоставления между магазинами.
 model Game {
-  id              Int      @id @default(autoincrement())
-  title           String
-  platform        String
-  originalPrice   Float?
-  currentPrice    Float?
-  currency        String?
-  discountPercent Float    @default(0)
-  isFree          Boolean  @default(false)
+  id                Int       @id @default(autoincrement())
+  slug              String    @unique
+  title             String
+  normalizedTitle   String    @unique
   // game | demo | dlc | kit — выставляет BaseParser.saveGames по названию
-  kind            String   @default("game")
-  gameUrl         String
-  imageUrl        String?
-  description     String?
+  kind              String    @default("game")
+  imageUrl          String?
+  description       String?
+  itadId            String?   @unique
+  offersRefreshedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  saleEndDate     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  offers            Offer[]
 
-  priceHistory    PriceHistory[]
-
-  @@unique([title, platform])
-
-  @@index([platform])
-  @@index([discountPercent])
-  @@index([isFree])
   @@index([kind])
   @@index([createdAt])
 }
 
-model PriceHistory {
-  id              Int      @id @default(autoincrement())
-  gameId          Int
-  game            Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+/// Реестр магазинов, в которых продаются игры (Steam, Epic, GOG и т. д.).
+model Store {
+  id       String  @id
+  name     String
+  kind     String
+  isActive Boolean @default(true)
 
-  oldPrice        Float?
-  newPrice        Float?
-  oldDiscount     Float    @default(0)
-  newDiscount     Float    @default(0)
+  offers   Offer[]
+}
 
-  createdAt       DateTime @default(now())
+/// Предложение конкретного магазина: цена игры в магазине с курсом на момент обновления.
+model Offer {
+  id               Int       @id @default(autoincrement())
+  gameId           Int
+  game             Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  storeId          String
+  store            Store     @relation(fields: [storeId], references: [id])
 
+  originalPrice    Float?
+  currentPrice     Float?
+  currency         String?
+  originalPriceRub Float?
+  currentPriceRub  Float?
+  discountPercent  Float     @default(0)
+  isFree           Boolean   @default(false)
+  gameUrl          String
+  saleEndDate      DateTime?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  priceHistory     PriceHistory[]
+
+  @@unique([gameId, storeId])
   @@index([gameId])
+  @@index([storeId])
+  @@index([currentPriceRub])
+  @@index([discountPercent])
+  @@index([isFree])
+}
+
+model PriceHistory {
+  id          Int      @id @default(autoincrement())
+  offerId     Int
+  offer       Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  oldPrice    Float?
+  newPrice    Float?
+  oldDiscount Float    @default(0)
+  newDiscount Float    @default(0)
+
+  createdAt   DateTime @default(now())
+
+  @@index([offerId])
   @@index([createdAt])
+}
+
+/// Кэш курсов ЦБ, рублей за 1 единицу валюты (обновляется ежедневно).
+model ExchangeRate {
+  code      String   @id
+  rate      Float
+  fetchedAt DateTime
 }
 
 model UpdateLog {
