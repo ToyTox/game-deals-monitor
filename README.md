@@ -21,7 +21,7 @@ REST API для мониторинга скидок и бесплатных иг
 | Рантайм | Node.js 20, ESM (`"type": "module"`) |
 | Язык | TypeScript 5 |
 | HTTP | Express 4, cors, morgan |
-| БД | Prisma 5 (SQLite / PostgreSQL) |
+| БД | Prisma 7 + driver adapter `@prisma/adapter-better-sqlite3` (SQLite) |
 | Сеть | axios |
 | Расписание | node-cron |
 | Разное | cheerio, dotenv |
@@ -45,6 +45,8 @@ npm run prisma:migrate     # первый раз спросит имя мигр�
 
 npm run dev
 ```
+
+> `src/generated/` лежит в `.gitignore`, поэтому `npm run prisma:generate` после клона обязателен: без него не разрешится импорт `./generated/prisma/client.js` в `src/database.ts`. В `npm run build` генерация уже встроена (`prisma generate && tsc`).
 
 Сервер поднимется на `http://localhost:3000`. По этому адресу открывается веб-интерфейс: статистика, ручки всех API-методов и карточки найденных игр. JSON-карта эндпоинтов переехала на `/api`.
 
@@ -74,8 +76,15 @@ curl http://localhost:3000/api/admin/health
 Важные нюансы:
 
 - `RUN_ON_STARTUP` проверяется как `process.env.RUN_ON_STARTUP !== 'false'` (`src/index.ts`). То есть парсеры при старте включены **по умолчанию**, и выключить их можно только точным значением `false` — пустое значение или отсутствие переменной их не отключат.
-- Для SQLite относительный путь в `DATABASE_URL` Prisma резолвит **относительно каталога `prisma/`**, поэтому в `.env.example` указано `file:./dev.db` — файл ляжет в `prisma/dev.db` (он же в `.gitignore`).
 - `import 'dotenv/config'` стоит **первым импортом** в `src/index.ts`: модули парсеров читают `process.env` на этапе загрузки, а импорты в ESM выполняются до тела модуля. Если перенести его ниже, настройки региона Steam из `.env` подхватываться не будут.
+- Строка подключения нигде не дублируется в схеме: рантайм передаёт её в адаптер (`PrismaBetterSqlite3({ url: process.env.DATABASE_URL })` в `src/database.ts`), а Prisma CLI берёт её из `prisma.config.ts`. Относительный путь SQLite адаптер резолвит **от рабочего каталога процесса**, то есть от корня проекта: `file:./prisma/dev.db` кладёт базу в `prisma/dev.db` (он же в `.gitignore`), а `file:./dev.db` — в корень репозитория.
+
+## 🧬 Конфигурация Prisma 7
+
+- `prisma.config.ts` в корне — конфиг Prisma CLI: путь к схеме (`prisma/schema.prisma`), каталог миграций (`prisma/migrations`) и `datasource.url` из `env("DATABASE_URL")`. `.env` подхватывается прямо в конфиге через `import "dotenv/config"`.
+- У `datasource db` в `prisma/schema.prisma` больше нет поля `url` — оно задаётся снаружи: конфигом для CLI и адаптером для рантайма.
+- Генератор — новый `prisma-client` (не legacy `prisma-client-js`): `output = "../src/generated/prisma"`, `runtime = "nodejs"`, `moduleFormat = "esm"`. Поэтому клиент импортируется из `./generated/prisma/client.js`, а не из `@prisma/client`.
+- Подключение к SQLite идёт через driver adapter `@prisma/adapter-better-sqlite3` — это нативный модуль, ему нужна сборка при установке.
 
 ## 📜 npm-скрипты
 
@@ -381,7 +390,7 @@ curl -X POST http://localhost:3000/api/admin/parse \
 
 ## 🗄️ Схема БД
 
-`prisma/schema.prisma`, три модели.
+`prisma/schema.prisma`, три модели. `datasource db` объявляет только `provider = "sqlite"` — url приходит извне (см. [🧬 Конфигурация Prisma 7](#-конфигурация-prisma-7)).
 
 ### `Game`
 
@@ -502,16 +511,21 @@ docker compose up -d
 
 Данные Postgres лежат в томе `postgres_data`.
 
-> ⚠️ **Перед первым `docker compose up` поменяйте провайдер БД.** `docker-compose.yml` передаёт приложению `DATABASE_URL` для PostgreSQL, а `prisma/schema.prisma` объявляет `provider = "sqlite"`. В таком виде приложение в контейнере работать не будет. Правьте `prisma/schema.prisma`:
+> ⚠️ **Перед первым `docker compose up` переезд на PostgreSQL нужно доделать руками.** `docker-compose.yml` передаёт приложению `DATABASE_URL` для PostgreSQL, а проект настроен на SQLite. В таком виде контейнер работать не будет. Нужно:
 >
-> ```prisma
-> datasource db {
->   provider = "postgresql"
->   url      = env("DATABASE_URL")
-> }
-> ```
+> 1. Поменять провайдер в `prisma/schema.prisma`:
 >
-> После смены провайдера потребуется заново сгенерировать миграции — SQLite-миграции из `prisma/migrations/` для PostgreSQL не подойдут.
+>    ```prisma
+>    datasource db {
+>      provider = "postgresql"
+>    }
+>    ```
+>
+> 2. Заменить зависимость `@prisma/adapter-better-sqlite3` на `@prisma/adapter-pg` (плюс `pg`).
+> 3. Переписать создание адаптера в `src/database.ts` — сейчас там жёстко зашит `PrismaBetterSqlite3`.
+> 4. Заново сгенерировать миграции: SQLite-миграции из `prisma/migrations/` и `migration_lock.toml` с `provider = "sqlite"` для PostgreSQL не подойдут.
+>
+> После переезда из `Dockerfile` можно убрать `apk add --no-cache python3 make g++` — эти пакеты стоят там только ради нативной сборки `better-sqlite3`.
 
 ## ➕ Как добавить новую платформу
 
@@ -560,6 +574,7 @@ game-deals-monitor/
 ├── src/
 │   ├── index.ts             # точка входа: Express, cron, graceful shutdown
 │   ├── database.ts          # singleton PrismaClient (с логами вне production)
+│   ├── generated/prisma/    # сгенерированный Prisma-клиент (в .gitignore)
 │   ├── types.ts             # Platform, ParsedGame, UpdateResult, StatsResponse
 │   ├── parsers/
 │   │   ├── BaseParsers.ts   # абстрактный парсер: saveGames(), run()
@@ -572,6 +587,7 @@ game-deals-monitor/
 │   └── services/
 │       ├── parserService.ts # оркестрация парсеров
 │       └── gameService.ts   # выборки, статистика, поиск
+├── prisma.config.ts         # конфиг Prisma CLI (схема, миграции, DATABASE_URL)
 ├── docker-compose.yml
 ├── Dockerfile
 ├── tsconfig.json
