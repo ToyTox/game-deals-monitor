@@ -75,5 +75,8 @@ curl http://localhost:3000/api/admin/health
 | `npm run db:migrate` | Создать новую миграцию после правки схемы (`prisma migrate dev`, спросит имя) |
 | `npm run db:reset` | Снести БД и накатить миграции заново (`prisma migrate reset`) |
 | `npm run db:studio` | Веб-интерфейс Prisma Studio для просмотра БД |
-| `npm test` | Заглушка — тестов в проекте нет |
+| `npm test` | Прогон тестов (`vitest run`) |
+| `npm run test:watch` | Тесты в watch-режиме |
+| `npm run test:coverage` | Тесты с отчётом покрытия (v8, `text` + `html`) |
+| `npm run typecheck` | Проверка типов по `tsconfig.test.json` без эмита |
 
