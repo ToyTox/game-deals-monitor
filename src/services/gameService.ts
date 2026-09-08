@@ -167,11 +167,13 @@ export class GameService {
       throw new Error(`Игра "${gameTitle}" не найдена`);
     }
 
-    return prisma.priceHistory.findMany({
+    const history = await prisma.priceHistory.findMany({
       where: { gameId: game.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
+
+    return { currency: game.currency, history };
   }
 
   async getUpdateLogs(limit: number = 50) {

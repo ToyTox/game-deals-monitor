@@ -52,6 +52,7 @@ export class GOGParser extends BaseParser {
             games.push({
               title: item.title,
               platform: 'gog',
+              currency: 'USD',
               originalPrice: item.normalPrice,
               currentPrice: item.finalPrice,
               discountPercent: item.discount,
@@ -106,6 +107,7 @@ export class GOGParser extends BaseParser {
           games.push({
             title: item.title,
             platform: 'gog',
+            currency: 'USD',
             originalPrice: item.normalPrice,
             currentPrice: 0,
             discountPercent: 100,

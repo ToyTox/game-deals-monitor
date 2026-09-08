@@ -155,9 +155,10 @@ router.get("/:title", async (req: Request, res: Response) => {
  */
 router.get("/:title/price-history", async (req: Request, res: Response) => {
   try {
-    const history = await gameService.getPriceHistory(req.params.title);
+    const { currency, history } = await gameService.getPriceHistory(req.params.title);
     res.json({
       game: req.params.title,
+      currency,
       history,
       total: history.length,
     });

@@ -58,9 +58,16 @@ function setResult(title, meta, data) {
 }
 
 // Formatters
-function fmtPrice(v) {
+function fmtPrice(v, currency) {
   if (v === null || v === undefined) return '—';
   if (v === 0) return 'Бесплатно';
+  if (currency) {
+    try {
+      return new Intl.NumberFormat('ru-RU', { style: 'currency', currency }).format(v);
+    } catch {
+      // Неизвестный код валюты — показываем голое число
+    }
+  }
   return Number(v).toFixed(2);
 }
 
@@ -103,7 +110,7 @@ function renderGames(games, expanded = false) {
 
     const priceHtml = game.isFree
       ? `<div class="card-price">Бесплатно</div>`
-      : `<div class="card-price"><span class="current">${esc(fmtPrice(game.currentPrice))}</span>${game.originalPrice && game.originalPrice !== game.currentPrice ? `<s class="original">${esc(fmtPrice(game.originalPrice))}</s>` : ''}</div>`;
+      : `<div class="card-price"><span class="current">${esc(fmtPrice(game.currentPrice, game.currency))}</span>${game.originalPrice && game.originalPrice !== game.currentPrice ? `<s class="original">${esc(fmtPrice(game.originalPrice, game.currency))}</s>` : ''}</div>`;
 
     const badgesHtml = `
       <div class="badges">
@@ -119,7 +126,7 @@ function renderGames(games, expanded = false) {
             ${game.priceHistory.map(h => `
               <li>
                 <strong>${esc(fmtDate(h.createdAt))}</strong><br>
-                Цена: ${esc(fmtPrice(h.oldPrice))} → ${esc(fmtPrice(h.newPrice))}<br>
+                Цена: ${esc(fmtPrice(h.oldPrice, game.currency))} → ${esc(fmtPrice(h.newPrice, game.currency))}<br>
                 Скидка: ${h.oldDiscount}% → ${h.newDiscount}%
               </li>
             `).join('')}
@@ -467,8 +474,8 @@ $('btn-history').addEventListener('click', async () => {
     const rows = data.history.map(h => ({
       cells: [
         fmtDate(h.createdAt),
-        fmtPrice(h.oldPrice),
-        fmtPrice(h.newPrice),
+        fmtPrice(h.oldPrice, data.currency),
+        fmtPrice(h.newPrice, data.currency),
         `${h.oldDiscount}%`,
         `${h.newDiscount}%`
       ],
