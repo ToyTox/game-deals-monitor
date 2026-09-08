@@ -1,3 +1,5 @@
+// Должен идти первым импортом: модули парсеров читают process.env на этапе загрузки.
+import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';

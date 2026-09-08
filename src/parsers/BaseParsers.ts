@@ -31,6 +31,7 @@ export abstract class BaseParser {
               platform: this.platform,
               originalPrice: game.originalPrice,
               currentPrice: game.currentPrice,
+              currency: game.currency,
               discountPercent: game.discountPercent,
               isFree: game.isFree,
               gameUrl: game.gameUrl,
@@ -65,6 +66,7 @@ export abstract class BaseParser {
             data: {
               originalPrice: game.originalPrice,
               currentPrice: game.currentPrice,
+              currency: game.currency,
               discountPercent: game.discountPercent,
               isFree: game.isFree,
               gameUrl: game.gameUrl,

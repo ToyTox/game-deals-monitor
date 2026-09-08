@@ -15,6 +15,7 @@ model Game {
   platform        String
   originalPrice   Float?
   currentPrice    Float?
+  currency        String?
   discountPercent Float    @default(0)
   isFree          Boolean  @default(false)
   gameUrl         String

@@ -28,6 +28,9 @@ services:
       NODE_ENV: production
       PORT: 3000
       CRON_SCHEDULE: "0 6 * * *"
+      STEAM_COUNTRY_CODE: ru
+      STEAM_LANGUAGE: russian
+      STEAM_SEARCH_PAGES: 3
     depends_on:
       postgres:
         condition: service_healthy

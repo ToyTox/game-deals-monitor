@@ -67,11 +67,15 @@ curl http://localhost:3000/api/admin/health
 | `CRON_SCHEDULE` | `0 6 * * *` | Cron-выражение для планового парсинга |
 | `RUN_ON_STARTUP` | `true` | Запускать ли парсеры при старте сервера |
 | `LOG_LEVEL` | `info` | Объявлена в `.env.example`, **но в коде не используется** |
+| `STEAM_COUNTRY_CODE` | `ru` | Регион магазина Steam (`cc`): определяет валюту цен |
+| `STEAM_LANGUAGE` | `russian` | Язык Steam (`l`): определяет язык названий и описаний |
+| `STEAM_SEARCH_PAGES` | `3` | Сколько страниц по 100 игр обойти в поиске по акциям; `0` — только витрина |
 
 Важные нюансы:
 
 - `RUN_ON_STARTUP` проверяется как `process.env.RUN_ON_STARTUP !== 'false'` (`src/index.ts`). То есть парсеры при старте включены **по умолчанию**, и выключить их можно только точным значением `false` — пустое значение или отсутствие переменной их не отключат.
-- Для SQLite относительный путь в `DATABASE_URL` Prisma резолвит **относительно каталога `prisma/`**. Значение `file:./prisma/dev.db` из `.env.example` даст файл `prisma/prisma/dev.db`. Если хотите привычный `prisma/dev.db` (он же указан в `.gitignore`), пропишите `DATABASE_URL="file:./dev.db"`.
+- Для SQLite относительный путь в `DATABASE_URL` Prisma резолвит **относительно каталога `prisma/`**, поэтому в `.env.example` указано `file:./dev.db` — файл ляжет в `prisma/dev.db` (он же в `.gitignore`).
+- `import 'dotenv/config'` стоит **первым импортом** в `src/index.ts`: модули парсеров читают `process.env` на этапе загрузки, а импорты в ESM выполняются до тела модуля. Если перенести его ниже, настройки региона Steam из `.env` подхватываться не будут.
 
 ## 📜 npm-скрипты
 
@@ -388,6 +392,7 @@ curl -X POST http://localhost:3000/api/admin/parse \
 | `platform` | `String` | `steam` / `epic` / `gog` |
 | `originalPrice` | `Float?` | Цена без скидки |
 | `currentPrice` | `Float?` | Текущая цена |
+| `currency` | `String?` | Валюта цен, ISO 4217 (для российского Steam — `RUB`) |
 | `discountPercent` | `Float` | По умолчанию `0` |
 | `isFree` | `Boolean` | По умолчанию `false` |
 | `gameUrl` | `String` | Ссылка на страницу игры |
@@ -446,9 +451,28 @@ curl -X POST http://localhost:3000/api/admin/parse \
 
 | Площадка | Источник |
 |---|---|
-| Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=us&l=en` — категории `specials`, `top_sellers`, `new_releases` |
+| Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian` (витрина: `specials`, `top_sellers`, `new_releases`) + `GET https://store.steampowered.com/search/results/?specials=1&infinite=1&json=1&cc=ru&l=russian` — до `STEAM_SEARCH_PAGES` страниц по 100 игр |
 | Epic Games | `POST https://www.epicgames.com/graphql` (запрос `Catalog.searchStore`, первые 100 позиций) |
 | GOG | `GET https://api.gog.com/v2/games/products` — до 5 страниц по 50 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`priceRange: '0,0'`) |
+
+### 🇷🇺 Steam: российский регион
+
+`SteamParser` ходит в магазин с параметрами региона `cc` и `l` (по умолчанию `ru` / `russian`), поэтому приходят рублёвые цены и русские названия. Валюта складывается в `Game.currency` — из поля `currency` ответа витрины, а для HTML-выдачи поиска берётся по коду страны (`ru → RUB`, `kz → KZT`, `by → BYN`, `ua → UAH`, `us → USD`).
+
+Что делает парсер:
+
+1. Тянет витрину `/api/featuredcategories/` — разделы `specials`, `top_sellers`, `new_releases`. Раздел `coming_soon` намеренно пропущен: у неанонсированных игр нет цены, и они попадали бы в базу как бесплатные.
+2. Постранично обходит специальные предложения через `/search/results/` (`STEAM_SEARCH_PAGES` страниц по 100 игр, пауза 700 мс между запросами), разбирая HTML-карточки через cheerio.
+3. Схлопывает дубли: сначала по `appid`, затем по названию — из одинаковых заголовков остаётся вариант с большей скидкой (`Game.title` в базе уникален).
+
+Цены Steam отдаёт в копейках, парсер делит на 100. `discount_expiration` витрины пишется в `saleEndDate`, так что видно, когда акция заканчивается. Данные витрины приоритетнее: если игра есть и там, и в поиске, берутся точные цены из API.
+
+Сменить регион — через `.env`, код менять не нужно:
+
+```bash
+STEAM_COUNTRY_CODE=kz
+STEAM_LANGUAGE=russian
+```
 
 ## ⏰ Расписание
 
@@ -556,7 +580,11 @@ game-deals-monitor/
 
 ## ⚠️ Известные ограничения и TODO
 
+- **Цены разных площадок лежат в одной шкале.** Steam пишет рубли, GOG и Epic — свою валюту; поле `Game.currency` заполняет только Steam-парсер. Поэтому сравнивать между площадками можно скидки в процентах, но не абсолютные цены: `topDiscounts` и `averageDiscount` корректны, а «самая дешёвая игра» по всем платформам — нет.
+- **Второй источник Steam — HTML.** Список акций из `/search/results/` разбирается через cheerio по классам вёрстки (`.search_result_row`, `.discount_block[data-price-final]`). Если Valve поменяет разметку, этот источник тихо вернёт 0 игр — витрина при этом продолжит работать. Отключается через `STEAM_SEARCH_PAGES=0`.
+- **Free-to-play игры считаются бесплатными.** `isFree` выставляется по `currentPrice === 0`, поэтому в `/api/games/free` вместе с раздачами попадут и F2P-тайтлы витрины.
 - **`EpicParser.parseFreeGames()` — пустая заглушка.** Метод объявлен, содержит только комментарий и всегда возвращает пустой массив, так что еженедельные раздачи Epic не собираются.
+- **Epic-парсер разбирает ответ не по той форме.** GraphQL-запрос просит `searchStore { elements { ... } }`, а код в `src/parsers/epicParsers.ts` итерирует сам `searchStore`; `for...of` по объекту бросает ошибку, она гасится в `catch`, и парсер отдаёт 0 игр.
 - **Поиск регистрозависим на некоторых БД.** `GameService.search()` приводит запрос к нижнему регистру и использует `contains` без `mode: 'insensitive'` (Prisma не поддерживает его для SQLite). Фактическое поведение зависит от коллации БД: в SQLite сравнение по умолчанию регистрозависимо для не-ASCII, в PostgreSQL — регистрозависимо всегда.
 - **N+1 в статистике.** `getStats()` в цикле по платформам делает по два `count`-запроса на каждую. На нынешних объёмах не критично, но масштабируется линейно по числу площадок.
 - **Нет аутентификации.** Любой, кто дотянется до `/api/admin/*`, может запустить парсинг и прочитать статистику.

@@ -5,6 +5,8 @@ export interface ParsedGame {
   platform: Platform;
   originalPrice?: number;
   currentPrice?: number;
+  /** Валюта цен, ISO 4217 (например, RUB для российского Steam). */
+  currency?: string;
   discountPercent: number;
   isFree: boolean;
   gameUrl: string;
