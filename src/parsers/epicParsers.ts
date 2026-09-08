@@ -2,32 +2,37 @@ import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
 
+interface EpicElement {
+  title: string;
+  id: string;
+  keyImages?: Array<{
+    type: string;
+    url: string;
+  }>;
+  price?: {
+    totalPrice?: {
+      discountPrice?: number;
+      originalPrice?: number;
+    };
+  };
+  promotions?: {
+    promotionalOffers?: Array<{
+      promotionalOffers?: Array<{
+        discountSetting?: {
+          discountPercentage: number;
+        };
+      }>;
+    }>;
+  } | null;
+}
+
 interface EpicResponse {
   data?: {
     Catalog?: {
-      searchStore?: Array<{
-        title: string;
-        id: string;
-        keyImages?: Array<{
-          type: string;
-          url: string;
-        }>;
-        price?: {
-          totalPrice?: {
-            discountPrice?: number;
-            originalPrice?: number;
-          };
-        };
-        promotions?: {
-          promotionalOffers?: Array<{
-            promotionalOffers?: Array<{
-              discountSetting?: {
-                discountPercentage: number;
-              };
-            }>;
-          }>;
-        };
-      }>;
+      // searchStore — объект с полем elements, а не массив: именно так отвечает GraphQL Epic.
+      searchStore?: {
+        elements?: EpicElement[];
+      };
     };
   };
 }
@@ -93,7 +98,7 @@ export class EpicParser extends BaseParser {
             item.promotions?.promotionalOffers?.[0]?.promotionalOffers?.[0]
               ?.discountSetting?.discountPercentage || 0;
 
-          const headerImage = item.keyImages?.find((img: any) => img.type === 'Thumbnail')?.url;
+          const headerImage = item.keyImages?.find((img) => img.type === 'Thumbnail')?.url;
 
           games.push({
             title: item.title,
