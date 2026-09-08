@@ -84,10 +84,11 @@ export class EpicParser extends BaseParser {
         }
       );
 
-      if (response.data?.data?.Catalog?.searchStore) {
-        for (const item of response.data.data.Catalog.searchStore) {
-          const originalPrice = item.price?.totalPrice?.originalPrice || 0;
-          const currentPrice = item.price?.totalPrice?.discountPrice || originalPrice;
+      const elements = response.data?.data?.Catalog?.searchStore?.elements;
+      if (Array.isArray(elements)) {
+        for (const item of elements) {
+          const originalPrice = item.price?.totalPrice?.originalPrice ?? 0;
+          const currentPrice = item.price?.totalPrice?.discountPrice ?? originalPrice;
           const discount =
             item.promotions?.promotionalOffers?.[0]?.promotionalOffers?.[0]
               ?.discountSetting?.discountPercentage || 0;

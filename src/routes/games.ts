@@ -107,9 +107,9 @@ router.get("/platform/:name", async (req: Request, res: Response) => {
  */
 router.get("/search", async (req: Request, res: Response) => {
   try {
-    const query = req.query.q as string;
+    const query = req.query.q;
 
-    if (!query || query.length < 2) {
+    if (typeof query !== "string" || query.length < 2) {
       return res.status(400).json({
         error: "Укажите поисковый запрос (минимум 2 символа)",
       });

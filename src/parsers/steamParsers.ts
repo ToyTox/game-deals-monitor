@@ -234,7 +234,7 @@ export class SteamParser extends BaseParser {
       );
       const originalPrice =
         originalFromText ??
-        (discountPercent > 0
+        (discountPercent > 0 && discountPercent < 100
           ? Math.round((currentPrice / (1 - discountPercent / 100)) * 100) / 100
           : currentPrice);
 
