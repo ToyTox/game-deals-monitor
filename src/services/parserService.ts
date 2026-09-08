@@ -2,6 +2,7 @@ import { BaseParser } from '../parsers/BaseParsers.js';
 import SteamParser from '../parsers/steamParsers.js';
 import EpicParser from '../parsers/epicParsers.js';
 import GOGParser from '../parsers/gogParsers.js';
+import VkPlayParser from '../parsers/vkPlayParsers.js';
 import { UpdateResult } from '../types.js';
 
 export class ParserService {
@@ -12,6 +13,7 @@ export class ParserService {
       new SteamParser(),
       new EpicParser(),
       new GOGParser(),
+      new VkPlayParser(),
     ];
   }
 

@@ -280,8 +280,8 @@ export class SteamParser extends BaseParser {
   }
 
   /**
-   * Game.title в базе уникален, поэтому одинаковые названия внутри одного прогона
-   * схлопываем заранее — иначе одна и та же запись создаётся и тут же перезаписывается.
+   * Пара (title, platform) в базе уникальна, поэтому одинаковые названия внутри одного
+   * прогона схлопываем заранее — иначе одна и та же запись создаётся и тут же перезаписывается.
    */
   private dedupeByTitle(games: ParsedGame[]): ParsedGame[] {
     const byTitle = new Map<string, ParsedGame>();

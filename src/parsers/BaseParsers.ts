@@ -21,7 +21,7 @@ export abstract class BaseParser {
     try {
       for (const game of games) {
         const existing = await prisma.game.findUnique({
-          where: { title: game.title },
+          where: { title_platform: { title: game.title, platform: this.platform } },
         });
 
         if (!existing) {

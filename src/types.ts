@@ -1,4 +1,4 @@
-export type Platform = "steam" | "epic" | "gog" | "ubisoft" | "origin" | "xbox";
+export type Platform = "steam" | "epic" | "gog" | "vkplay" | "ubisoft" | "origin" | "xbox";
 
 export interface ParsedGame {
   title: string;

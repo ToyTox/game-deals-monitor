@@ -71,7 +71,9 @@ export class GameService {
   }
 
   async getByTitle(title: string) {
-    return prisma.game.findUnique({
+    // Название больше не уникально глобально (ключ — пара title+platform),
+    // поэтому берём первую подходящую запись независимо от площадки.
+    return prisma.game.findFirst({
       where: { title },
       include: {
         priceHistory: {
@@ -159,7 +161,7 @@ export class GameService {
   }
 
   async getPriceHistory(gameTitle: string) {
-    const game = await prisma.game.findUnique({
+    const game = await prisma.game.findFirst({
       where: { title: gameTitle },
     });
 

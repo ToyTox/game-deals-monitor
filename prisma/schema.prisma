@@ -11,7 +11,7 @@ datasource db {
 
 model Game {
   id              Int      @id @default(autoincrement())
-  title           String   @unique
+  title           String
   platform        String
   originalPrice   Float?
   currentPrice    Float?
@@ -27,6 +27,8 @@ model Game {
   updatedAt       DateTime @updatedAt
 
   priceHistory    PriceHistory[]
+
+  @@unique([title, platform])
 
   @@index([platform])
   @@index([discountPercent])

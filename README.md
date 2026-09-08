@@ -1,6 +1,6 @@
 # 🎮 Game Deals Monitor API
 
-REST API для мониторинга скидок и бесплатных игр на игровых площадках: **Steam**, **Epic Games Store** и **GOG**.
+REST API для мониторинга скидок и бесплатных игр на игровых площадках: **Steam**, **Epic Games Store**, **GOG** и **VK Play**.
 
 Сервис по расписанию обходит площадки, складывает игры в БД, ведёт историю изменения цен и отдаёт всё это через HTTP: фильтры по платформе и размеру скидки, топ скидок, бесплатные игры, поиск по названию и статистика.
 
@@ -72,6 +72,9 @@ curl http://localhost:3000/api/admin/health
 | `STEAM_COUNTRY_CODE` | `ru` | Регион магазина Steam (`cc`): определяет валюту цен |
 | `STEAM_LANGUAGE` | `russian` | Язык Steam (`l`): определяет язык названий и описаний |
 | `STEAM_SEARCH_PAGES` | `3` | Сколько страниц по 100 игр обойти в поиске по акциям; `0` — только витрина |
+| `VKPLAY_MAX_PAGES` | `0` | Сколько страниц каталога VK Play обойти (24 игры на страницу); `0` — весь каталог |
+| `VKPLAY_ONLY_DISCOUNTED` | `true` | Сохранять только игры со скидкой; `false` — все продаваемые |
+| `VKPLAY_REQUEST_DELAY` | `300` | Пауза между страницами каталога VK Play, мс |
 
 Важные нюансы:
 
@@ -142,7 +145,7 @@ curl http://localhost:3000/api/admin/health
 
 | Параметр | Тип | По умолчанию | Описание |
 |---|---|---|---|
-| `platform` | string | — | Точное совпадение платформы: `steam`, `epic`, `gog` |
+| `platform` | string | — | Точное совпадение платформы: `steam`, `epic`, `gog`, `vkplay` |
 | `minDiscount` | number | — | Минимальная скидка в процентах (учитывается только если > 0) |
 | `free` | `true` | — | `free=true` — только бесплатные игры |
 | `limit` | number | `100` | Сколько записей вернуть |
@@ -377,7 +380,7 @@ curl -X POST http://localhost:3000/api/admin/parse \
 Список платформ, для которых зарегистрированы парсеры (имена берутся из имён классов).
 
 ```json
-{ "platforms": ["steam", "epic", "gog"], "total": 3 }
+{ "platforms": ["steam", "epic", "gog", "vkplay"], "total": 4 }
 ```
 
 #### `GET /api/admin/health`
@@ -397,8 +400,8 @@ curl -X POST http://localhost:3000/api/admin/parse \
 | Поле | Тип | Примечание |
 |---|---|---|
 | `id` | `Int` | PK, автоинкремент |
-| `title` | `String` | **уникальное** — ключ, по которому игры матчатся между запусками |
-| `platform` | `String` | `steam` / `epic` / `gog` |
+| `title` | `String` | Название игры; вместе с `platform` — ключ, по которому игры матчатся между запусками |
+| `platform` | `String` | `steam` / `epic` / `gog` / `vkplay` |
 | `originalPrice` | `Float?` | Цена без скидки |
 | `currentPrice` | `Float?` | Текущая цена |
 | `currency` | `String?` | Валюта цен, ISO 4217 (для российского Steam — `RUB`) |
@@ -410,6 +413,8 @@ curl -X POST http://localhost:3000/api/admin/parse \
 | `saleEndDate` | `DateTime?` | Когда заканчивается акция |
 | `createdAt` / `updatedAt` | `DateTime` | Служебные |
 | `priceHistory` | `PriceHistory[]` | Связь один-ко-многим |
+
+Уникальность теперь составная: `@@unique([title, platform])` вместо глобально уникального `title`. Одна и та же игра может присутствовать на нескольких площадках под одним названием.
 
 Индексы: `platform`, `discountPercent`, `isFree`, `createdAt`.
 
@@ -445,10 +450,10 @@ curl -X POST http://localhost:3000/api/admin/parse \
 
 ## 🔄 Как работает парсинг
 
-1. `ParserService` в конструкторе поднимает список парсеров: `SteamParser`, `EpicParser`, `GOGParser`.
+1. `ParserService` в конструкторе поднимает список парсеров: `SteamParser`, `EpicParser`, `GOGParser`, `VkPlayParser`.
 2. `parseAll()` запускает `parser.run()` для всех через `Promise.allSettled` — упавший парсер попадает в список ошибок, но остальные доезжают до конца.
 3. `BaseParser.run()` вызывает `parse()` конкретной площадки, затем `saveGames()`.
-4. `saveGames()` для каждой игры ищет существующую запись **по уникальному `title`**:
+4. `saveGames()` для каждой игры ищет существующую запись **по составному ключу `(title, platform)`**:
    - не нашлась → `create`, `newCount++` (и `freedCount++`, если игра бесплатная);
    - нашлась → при изменившейся цене или скидке пишется `PriceHistory`, затем `update`, `updatedCount++` (и `freedCount++`, если игра стала бесплатной, а раньше не была).
 5. В конце пишется запись в `UpdateLog` — со `status: 'success'` либо, в `catch`, со `status: 'error'` и текстом ошибки (ошибка после этого пробрасывается дальше).
@@ -463,6 +468,7 @@ curl -X POST http://localhost:3000/api/admin/parse \
 | Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian` (витрина: `specials`, `top_sellers`, `new_releases`) + `GET https://store.steampowered.com/search/results/?specials=1&infinite=1&json=1&cc=ru&l=russian` — до `STEAM_SEARCH_PAGES` страниц по 100 игр |
 | Epic Games | `POST https://www.epicgames.com/graphql` (запрос `Catalog.searchStore`, первые 100 позиций) |
 | GOG | `GET https://api.gog.com/v2/games/products` — до 5 страниц по 50 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`priceRange: '0,0'`) |
+| VK Play | `GET https://api.vkplay.ru/play/games/?page=N` — постраничный обход каталога (24 записи на страницу, до `VKPLAY_MAX_PAGES`); фильтров у API нет, скидки отбираются на нашей стороне по `cost_info.has_discount` |
 
 ### 🇷🇺 Steam: российский регион
 
