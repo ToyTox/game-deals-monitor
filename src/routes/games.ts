@@ -14,7 +14,9 @@ router.get("/", async (req: Request, res: Response) => {
     const minDiscount = req.query.minDiscount
       ? parseInt(req.query.minDiscount as string)
       : undefined;
+    // free=true — только бесплатные, free=false — только платные, без параметра — всё подряд
     const freeOnly = req.query.free === "true";
+    const excludeFree = req.query.free === "false";
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
 
@@ -22,6 +24,7 @@ router.get("/", async (req: Request, res: Response) => {
       platform,
       minDiscount,
       freeOnly,
+      excludeFree,
       limit,
       offset,
     });

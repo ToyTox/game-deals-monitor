@@ -6,6 +6,7 @@ export class GameService {
     platform?: string;
     minDiscount?: number;
     freeOnly?: boolean;
+    excludeFree?: boolean;
     limit?: number;
     offset?: number;
   }) {
@@ -21,6 +22,8 @@ export class GameService {
 
     if (filter?.freeOnly) {
       where.isFree = true;
+    } else if (filter?.excludeFree) {
+      where.isFree = false;
     }
 
     const games = await prisma.game.findMany({
