@@ -1,0 +1,83 @@
+{
+  "specials": {
+    "id": "cat_specials",
+    "items": [
+      {
+        "id": 70,
+        "name": "Half-Life",
+        "discounted": true,
+        "discount_percent": 50,
+        "original_price": 199900,
+        "final_price": 99950,
+        "currency": "RUB",
+        "discount_expiration": 1900000000,
+        "header_image": "https://cdn.test/70/header.jpg"
+      },
+      {
+        "id": 400,
+        "name": "  Portal  ",
+        "discounted": true,
+        "discount_percent": 100,
+        "original_price": 49900,
+        "final_price": 0,
+        "currency": "RUB",
+        "large_capsule_image": "https://cdn.test/400/capsule.jpg"
+      },
+      {
+        "id": 620,
+        "name": "Portal 2",
+        "discounted": false,
+        "discount_percent": 0,
+        "original_price": null,
+        "final_price": 89900,
+        "small_capsule_image": "https://cdn.test/620/small.jpg"
+      }
+    ]
+  },
+  "top_sellers": {
+    "id": "cat_topsellers",
+    "items": [
+      {
+        "id": 70,
+        "name": "Half-Life (дубль из другой категории)",
+        "discount_percent": 10,
+        "original_price": 199900,
+        "final_price": 179910,
+        "currency": "RUB"
+      },
+      {
+        "id": 730,
+        "name": "Counter-Strike 2",
+        "discount_percent": 0,
+        "original_price": 0,
+        "final_price": null
+      }
+    ]
+  },
+  "new_releases": {
+    "id": "cat_newreleases",
+    "items": [
+      {
+        "id": 1091500,
+        "name": "Cyberpunk 2077",
+        "discount_percent": 25,
+        "original_price": 299900,
+        "final_price": 224925,
+        "currency": "RUB"
+      }
+    ]
+  },
+  "coming_soon": {
+    "id": "cat_comingsoon",
+    "items": [
+      {
+        "id": 999999,
+        "name": "Неанонсированная игра",
+        "discount_percent": 0,
+        "original_price": null,
+        "final_price": 0
+      }
+    ]
+  },
+  "status": 1
+}

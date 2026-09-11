@@ -1,0 +1,27 @@
+name: test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # postinstall запускает scripts/setup.mjs: копирование .env и prisma generate
+      # в CI нужны, а migrate deploy — нет, он создал бы лишнюю dev.db в рабочем каталоге.
+      SKIP_DB_MIGRATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # tsc — самая дешёвая проверка, которой у проекта до сих пор не было.
+      - run: npm run build
+
+      - run: npm run typecheck
+
+      - run: npm test

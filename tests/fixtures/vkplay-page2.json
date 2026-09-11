@@ -1,0 +1,49 @@
+{
+  "count": 6,
+  "next": null,
+  "previous": "https://api.vkplay.ru/play/games/?page=1",
+  "results": [
+    {
+      "id": 201,
+      "slug": "free-giveaway",
+      "name": "Бесплатная раздача",
+      "is_sellable": true,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 1200,
+        "actual_cost": 0,
+        "has_discount": true,
+        "discount": 100,
+        "date_end": "2031-03-01 12:30:00"
+      },
+      "logo": "https://cdn.test/201/logo.jpg",
+      "descr": "Полное описание"
+    },
+    {
+      "id": 202,
+      "slug": "",
+      "name": "Без slug",
+      "is_sellable": true,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 800,
+        "actual_cost": 400,
+        "has_discount": true,
+        "discount": 50
+      }
+    },
+    {
+      "id": 203,
+      "slug": "null-actual-cost",
+      "name": "Без актуальной цены",
+      "is_sellable": true,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 700,
+        "actual_cost": null,
+        "has_discount": true,
+        "discount": 50
+      }
+    }
+  ]
+}
