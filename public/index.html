@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Game Deals Monitor</title>
   <link rel="stylesheet" href="/styles.css">
+  <script>
+    // Тема до первой отрисовки: app.js грузится с defer — для этого слишком поздно
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('theme'); } catch (e) {}
+      document.documentElement.dataset.theme =
+        stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    })();
+  </script>
 </head>
 <body>
   <header>
@@ -15,6 +26,7 @@
           <span id="health-dot" class="fail"></span>
           <span id="health-text">Загрузка…</span>
         </div>
+        <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Переключить тему"></button>
         <button id="refresh-all">Обновить всё</button>
       </div>
     </div>
@@ -31,6 +43,28 @@
         <button id="btn-stats">Обновить статистику</button>
         <button id="btn-health">Проверить health</button>
       </div>
+    </section>
+
+    <!-- Free Games Section -->
+    <section class="catalog-section" id="section-free">
+      <div class="section-head">
+        <h2>🎁 Бесплатные игры</h2>
+        <div class="section-meta" id="free-meta"></div>
+      </div>
+      <div id="free-state"></div>
+      <div id="free-grid" class="grid"></div>
+      <nav id="free-pager" class="pager" aria-label="Пагинация: бесплатные игры"></nav>
+    </section>
+
+    <!-- Discounts Section -->
+    <section class="catalog-section" id="section-deals">
+      <div class="section-head">
+        <h2>🔥 Скидки</h2>
+        <div class="section-meta" id="deals-meta"></div>
+      </div>
+      <div id="deals-state"></div>
+      <div id="deals-grid" class="grid"></div>
+      <nav id="deals-pager" class="pager" aria-label="Пагинация: скидки"></nav>
     </section>
 
     <!-- API Endpoints Section -->
@@ -204,7 +238,7 @@
 
     <!-- Results Section -->
     <section class="results-section">
-      <h2 id="result-title"></h2>
+      <h2 id="result-title">Результат запроса</h2>
       <div id="result-meta" class="result-meta"></div>
       <div id="result-state"></div>
       <div id="games-grid" class="grid"></div>

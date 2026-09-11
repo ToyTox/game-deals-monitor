@@ -89,12 +89,16 @@ function esc(s) {
 
 // Render games
 function renderGames(games, expanded = false) {
-  const grid = $('games-grid');
   if (!games || games.length === 0) {
     showEmpty('Ничего не найдено');
     return;
   }
   clearState();
+  renderCards($('games-grid'), games, expanded);
+}
+
+// Отрисовка карточек в произвольную сетку
+function renderCards(grid, games, expanded = false) {
   grid.innerHTML = games.map(game => {
     const imgHtml = game.imageUrl
       ? `<img class="card-img" src="${esc(game.imageUrl)}" alt="${esc(game.title)}" loading="lazy">`
@@ -198,6 +202,161 @@ function updatePager() {
   $('btn-prev').disabled = offset <= 0;
   $('btn-next').disabled = offset + limit >= lastGamesTotal;
 }
+
+// ---- Разделы каталога: бесплатные игры и скидки ----
+const PAGE_SIZES = [12, 24, 48, 96];
+
+const sections = {
+  free: {
+    title: 'бесплатные игры',
+    params: { free: 'true' },
+    loading: 'Загрузка бесплатных игр…',
+    empty: 'Бесплатных игр пока нет',
+    page: 1,
+    pageSize: 12,
+    total: 0
+  },
+  deals: {
+    title: 'скидки',
+    params: { free: 'false', minDiscount: '1' },
+    loading: 'Загрузка скидок…',
+    empty: 'Игр со скидкой пока нет',
+    page: 1,
+    pageSize: 12,
+    total: 0
+  }
+};
+
+function sectionPages(s) {
+  return Math.max(1, Math.ceil(s.total / s.pageSize));
+}
+
+function setSectionState(key, cls, msg) {
+  const el = $(`${key}-state`);
+  el.className = cls;
+  el.textContent = msg;
+}
+
+// Номера страниц: первая, последняя, соседи текущей; остальное — многоточие
+function pageItems(current, pages) {
+  const items = [];
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - current) <= 1) {
+      items.push(p);
+    } else if (items[items.length - 1] !== '…') {
+      items.push('…');
+    }
+  }
+  return items;
+}
+
+function renderPager(key) {
+  const s = sections[key];
+  const el = $(`${key}-pager`);
+
+  if (s.total === 0) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const pages = sectionPages(s);
+  const nums = pageItems(s.page, pages).map(item =>
+    item === '…'
+      ? '<span class="pager-gap">…</span>'
+      : `<button type="button" class="page-btn${item === s.page ? ' is-active' : ''}" data-page="${item}"${item === s.page ? ' aria-current="page"' : ''}>${item}</button>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="pager-nav">
+      <button type="button" class="pager-btn" data-page="prev" ${s.page <= 1 ? 'disabled' : ''} aria-label="Предыдущая страница">←</button>
+      ${nums}
+      <button type="button" class="pager-btn" data-page="next" ${s.page >= pages ? 'disabled' : ''} aria-label="Следующая страница">→</button>
+    </div>
+    <label class="pager-size">
+      На странице:
+      <select data-size>
+        ${PAGE_SIZES.map(n => `<option value="${n}"${n === s.pageSize ? ' selected' : ''}>${n}</option>`).join('')}
+      </select>
+    </label>
+  `;
+}
+
+async function loadSection(key) {
+  const s = sections[key];
+  const grid = $(`${key}-grid`);
+
+  setSectionState(key, 'state-loading', s.loading);
+
+  try {
+    const query = new URLSearchParams({
+      ...s.params,
+      limit: String(s.pageSize),
+      offset: String((s.page - 1) * s.pageSize)
+    });
+
+    const data = await api('/api/games?' + query.toString());
+    s.total = data.total;
+
+    // Страница могла уехать за границы (например, после парсинга) — вернёмся на последнюю
+    const pages = sectionPages(s);
+    if (s.page > pages) {
+      s.page = pages;
+      return loadSection(key);
+    }
+
+    if (!data.games || data.games.length === 0) {
+      grid.innerHTML = '';
+      setSectionState(key, 'state-empty', s.empty);
+      $(`${key}-meta`).textContent = '';
+    } else {
+      setSectionState(key, '', '');
+      renderCards(grid, data.games);
+      const from = (s.page - 1) * s.pageSize + 1;
+      $(`${key}-meta`).textContent = `${from}–${from + data.games.length - 1} из ${s.total} · страница ${s.page} из ${pages}`;
+    }
+
+    renderPager(key);
+  } catch (e) {
+    grid.innerHTML = '';
+    $(`${key}-meta`).textContent = '';
+    $(`${key}-pager`).innerHTML = '';
+    setSectionState(key, 'state-error', e.message);
+  }
+}
+
+function loadSections() {
+  return Promise.all(Object.keys(sections).map(loadSection));
+}
+
+async function goToPage(key, page) {
+  const s = sections[key];
+  const pages = sectionPages(s);
+  if (page < 1 || page > pages || page === s.page) return;
+  s.page = page;
+  await loadSection(key);
+  $(`section-${key}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+Object.keys(sections).forEach(key => {
+  const pager = $(`${key}-pager`);
+
+  pager.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    const s = sections[key];
+    const val = btn.dataset.page;
+    const page = val === 'prev' ? s.page - 1 : val === 'next' ? s.page + 1 : parseInt(val, 10);
+    goToPage(key, page);
+  });
+
+  pager.addEventListener('change', (e) => {
+    if (!e.target.matches('select[data-size]')) return;
+    const s = sections[key];
+    s.pageSize = parseInt(e.target.value, 10) || 12;
+    s.page = 1;
+    loadSection(key);
+  });
+});
 
 // Load health
 async function loadHealth() {
@@ -561,8 +720,8 @@ $('btn-parse').addEventListener('click', async () => {
     const body = platform ? { platform } : {};
     const data = await api('/api/admin/parse', { method: 'POST', body });
 
-    // Сначала обновляем список игр, потом поверх выводим результат парсинга
-    await loadGames();
+    // Сначала обновляем карточки, потом выводим результат парсинга
+    await loadSections();
     clearState();
 
     const results = data.result ? [data.result] : (data.results || []);
@@ -599,11 +758,34 @@ $('btn-health').addEventListener('click', loadHealth);
 
 $('refresh-all').addEventListener('click', async () => {
   await Promise.all([loadHealth(), loadStats(), loadPlatforms()]);
-  await loadGames();
+  await loadSections();
+});
+
+// Тема (значение уже проставлено инлайн-скриптом в <head>)
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  // в тёмной показываем ☀️ («включить светлую»), в светлой — 🌙
+  $('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+applyTheme(document.documentElement.dataset.theme || 'dark');
+
+$('theme-toggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('theme', next); } catch (e) {}
+});
+
+// Пока пользователь не сделал явный выбор — следуем за системой вживую
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+  let stored = null;
+  try { stored = localStorage.getItem('theme'); } catch (err) {}
+  if (!stored) applyTheme(e.matches ? 'light' : 'dark');
 });
 
 // Init on load (скрипт с defer — DOM уже разобран)
 (async () => {
+  showEmpty('Выберите ручку API выше — результат появится здесь');
   await Promise.all([loadHealth(), loadStats(), loadPlatforms()]);
-  await loadGames();
+  await loadSections();
 })();

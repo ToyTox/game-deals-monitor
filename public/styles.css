@@ -1,4 +1,7 @@
+/* Тёмная тема — значения по умолчанию (фолбэк, если JS отключён) */
 :root {
+  color-scheme: dark;
+
   --bg: #0f0f0f;
   --panel: #1a1a1a;
   --border: #333;
@@ -7,6 +10,60 @@
   --accent: #4a9eff;
   --danger: #ff4444;
   --success: #44cc44;
+  --warning: #ffaa44;
+
+  --btn-text: #000;
+  --input-bg: #252525;
+  --surface-alt: #252525;
+  --table-stripe: #141414;
+  --table-hover: #1a1a1a;
+  --code-bg: #0a0a0a;
+  --code-text: #aaa;
+  --meta: #666;
+
+  --accent-soft: rgba(74, 158, 255, 0.1);
+  --accent-ring: rgba(74, 158, 255, 0.3);
+  --accent-badge: rgba(74, 158, 255, 0.2);
+  --danger-soft: rgba(255, 68, 68, 0.1);
+  --danger-ring: rgba(255, 68, 68, 0.3);
+  --muted-soft: rgba(153, 153, 153, 0.1);
+  --muted-ring: rgba(153, 153, 153, 0.3);
+  --success-soft: rgba(68, 204, 68, 0.2);
+  --warning-soft: rgba(255, 140, 0, 0.2);
+}
+
+/* Светлая тема */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #d8dce2;
+  --text: #1a1d21;
+  --muted: #5f6672;
+  --accent: #1667d6;
+  --danger: #d13438;
+  --success: #1a7f37;
+  --warning: #a35a00;
+
+  --btn-text: #ffffff;
+  --input-bg: #ffffff;
+  --surface-alt: #eceff3;
+  --table-stripe: #f7f8fa;
+  --table-hover: #eef1f5;
+  --code-bg: #f0f2f5;
+  --code-text: #3a4048;
+  --meta: #666d79;
+
+  --accent-soft: rgba(22, 103, 214, 0.08);
+  --accent-ring: rgba(22, 103, 214, 0.35);
+  --accent-badge: rgba(22, 103, 214, 0.12);
+  --danger-soft: rgba(209, 52, 56, 0.08);
+  --danger-ring: rgba(209, 52, 56, 0.35);
+  --muted-soft: rgba(95, 102, 114, 0.08);
+  --muted-ring: rgba(95, 102, 114, 0.3);
+  --success-soft: rgba(26, 127, 55, 0.12);
+  --warning-soft: rgba(163, 90, 0, 0.14);
 }
 
 * {
@@ -21,6 +78,7 @@ body {
   background-color: var(--bg);
   color: var(--text);
   line-height: 1.6;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 header {
@@ -75,7 +133,7 @@ header h1 {
 
 button {
   background-color: var(--accent);
-  color: #000;
+  color: var(--btn-text);
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 4px;
@@ -96,6 +154,27 @@ button:active {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Кнопка-иконка (переключатель темы) */
+.icon-btn {
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  opacity: 1;
+  border-color: var(--accent);
 }
 
 main {
@@ -258,7 +337,7 @@ label {
 input[type="text"],
 input[type="number"],
 select {
-  background-color: #252525;
+  background-color: var(--input-bg);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 0.5rem 0.75rem;
@@ -273,7 +352,7 @@ input[type="number"]:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.1);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 input[type="checkbox"] {
@@ -295,6 +374,126 @@ input[type="checkbox"] {
   min-width: 100px;
   font-size: 0.9rem;
   padding: 0.5rem 0.75rem;
+}
+
+/* Catalog sections (free / deals) */
+.catalog-section {
+  background-color: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  scroll-margin-top: 6rem;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.section-meta {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.catalog-section .grid {
+  margin-bottom: 1.5rem;
+}
+
+.catalog-section .grid:empty {
+  margin-bottom: 0;
+}
+
+.catalog-section > div[id$="-state"]:empty {
+  display: none;
+}
+
+.catalog-section > div[id$="-state"] {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+/* Pagination */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pager:empty {
+  display: none;
+}
+
+.pager-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pager-btn,
+.page-btn {
+  min-width: 2.25rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  background-color: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pager-btn:hover:not(:disabled),
+.page-btn:hover:not(.is-active) {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-ring);
+  color: var(--accent);
+}
+
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-btn.is-active {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--btn-text);
+  font-weight: 600;
+  cursor: default;
+}
+
+.pager-gap {
+  color: var(--muted);
+  padding: 0 0.15rem;
+}
+
+.pager-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pager-size select {
+  padding: 0.35rem 0.5rem;
+  background-color: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
 }
 
 /* Results Section */
@@ -325,21 +524,21 @@ input[type="checkbox"] {
 }
 
 .state-loading {
-  background-color: rgba(74, 158, 255, 0.1);
+  background-color: var(--accent-soft);
   color: var(--accent);
-  border: 1px solid rgba(74, 158, 255, 0.3);
+  border: 1px solid var(--accent-ring);
 }
 
 .state-error {
-  background-color: rgba(255, 68, 68, 0.1);
+  background-color: var(--danger-soft);
   color: var(--danger);
-  border: 1px solid rgba(255, 68, 68, 0.3);
+  border: 1px solid var(--danger-ring);
 }
 
 .state-empty {
-  background-color: rgba(153, 153, 153, 0.1);
+  background-color: var(--muted-soft);
   color: var(--muted);
-  border: 1px solid rgba(153, 153, 153, 0.3);
+  border: 1px solid var(--muted-ring);
 }
 
 /* Grid */
@@ -363,14 +562,14 @@ input[type="checkbox"] {
 
 .card:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.1);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .card-img {
   width: 100%;
   height: 113px;
   object-fit: contain;
-  background-color: #252525;
+  background-color: var(--surface-alt);
 }
 
 .card-img.placeholder {
@@ -378,7 +577,7 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   font-size: 3rem;
-  background-color: #252525;
+  background-color: var(--surface-alt);
 }
 
 /* Одна игра (GET /api/games/:title) — карточка во всю ширину, описание целиком */
@@ -421,18 +620,18 @@ input[type="checkbox"] {
 }
 
 .badge-platform {
-  background-color: rgba(74, 158, 255, 0.2);
+  background-color: var(--accent-badge);
   color: var(--accent);
 }
 
 .badge-free {
-  background-color: rgba(68, 204, 68, 0.2);
+  background-color: var(--success-soft);
   color: var(--success);
 }
 
 .badge-discount {
-  background-color: rgba(255, 140, 0, 0.2);
-  color: #ffaa44;
+  background-color: var(--warning-soft);
+  color: var(--warning);
 }
 
 .card h3 {
@@ -490,7 +689,7 @@ input[type="checkbox"] {
 
 .card-meta {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--meta);
   margin: 0.25rem 0;
 }
 
@@ -543,7 +742,7 @@ table {
 }
 
 th {
-  background-color: #252525;
+  background-color: var(--surface-alt);
   border: 1px solid var(--border);
   padding: 0.75rem;
   text-align: left;
@@ -558,15 +757,15 @@ td {
 }
 
 tr:nth-child(even) {
-  background-color: #141414;
+  background-color: var(--table-stripe);
 }
 
 tr:hover {
-  background-color: #1a1a1a;
+  background-color: var(--table-hover);
 }
 
 .row-error {
-  background-color: rgba(255, 68, 68, 0.1);
+  background-color: var(--danger-soft);
 }
 
 /* Raw JSON */
@@ -591,7 +790,7 @@ summary:hover {
 }
 
 #raw-json {
-  background-color: #0a0a0a;
+  background-color: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1rem;
@@ -599,7 +798,7 @@ summary:hover {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
   line-height: 1.4;
-  color: #aaa;
+  color: var(--code-text);
   max-height: 400px;
   overflow-y: auto;
 }
@@ -623,6 +822,7 @@ summary:hover {
   .header-controls {
     width: 100%;
     justify-content: space-between;
+    gap: 0.75rem;
   }
 
   #refresh-all {
@@ -649,6 +849,18 @@ summary:hover {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-section {
+    padding: 1.25rem;
+  }
+
+  .pager {
+    justify-content: center;
+  }
+
+  .pager-nav {
+    justify-content: center;
   }
 
   .form-actions {
