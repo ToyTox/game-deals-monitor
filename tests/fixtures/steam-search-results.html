@@ -1,0 +1,47 @@
+<!-- Пять строк выдачи поиска Steam, по одной ветке разбора на каждую.
+     Здесь только то, что реально читает parseSearchHtml: data-ds-appid,
+     .title, .discount_block[data-price-final][data-discount],
+     .discount_original_price и .search_capsule img[src]. -->
+
+<a class="search_result_row" data-ds-appid="70" href="https://store.steampowered.com/app/70/">
+  <div class="search_capsule"><img src="https://cdn.test/70/capsule.jpg"></div>
+  <span class="title">Half-Life</span>
+  <div class="discount_block" data-price-final="99950" data-discount="50">
+    <div class="discount_original_price">1 999 руб.</div>
+    <div class="discount_final_price">999,50 руб.</div>
+  </div>
+</a>
+
+<!-- Скидка есть, но зачёркнутой цены нет: оригинальная цена выводится формулой. -->
+<a class="search_result_row" data-ds-appid="400" href="https://store.steampowered.com/app/400/">
+  <div class="search_capsule"><img src="https://cdn.test/400/capsule.jpg"></div>
+  <span class="title">Portal</span>
+  <div class="discount_block" data-price-final="24950" data-discount="50">
+    <div class="discount_final_price">249,50 руб.</div>
+  </div>
+</a>
+
+<!-- Скидка 100% без зачёркнутой цены: деление на (1 - 1) даёт нечисловой результат. -->
+<a class="search_result_row" data-ds-appid="620" href="https://store.steampowered.com/app/620/">
+  <div class="search_capsule"><img src="https://cdn.test/620/capsule.jpg"></div>
+  <span class="title">Portal 2</span>
+  <div class="discount_block" data-price-final="0" data-discount="100">
+    <div class="discount_final_price">Бесплатно</div>
+  </div>
+</a>
+
+<!-- Нет данных о цене: F2P или игра недоступна в регионе — строка пропускается. -->
+<a class="search_result_row" data-ds-appid="730" href="https://store.steampowered.com/app/730/">
+  <div class="search_capsule"><img src="https://cdn.test/730/capsule.jpg"></div>
+  <span class="title">Counter-Strike 2</span>
+  <div class="discount_block"></div>
+</a>
+
+<!-- Цена есть, атрибута скидки нет: discountPercent должен стать нулём. -->
+<a class="search_result_row" data-ds-appid="292030" href="https://store.steampowered.com/app/292030/">
+  <div class="search_capsule"><img src="https://cdn.test/292030/capsule.jpg"></div>
+  <span class="title">The Witcher 3</span>
+  <div class="discount_block" data-price-final="129900">
+    <div class="discount_final_price">1 299 руб.</div>
+  </div>
+</a>

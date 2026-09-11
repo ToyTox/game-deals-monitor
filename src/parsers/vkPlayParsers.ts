@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
+import { dedupeByTitle, delay, parseMoscowDate } from './helpers.js';
 
 const VKPLAY_API = 'https://api.vkplay.ru/play/games/';
 const VKPLAY_STORE = 'https://vkplay.ru/play/game';
@@ -81,10 +82,10 @@ export class VkPlayParser extends BaseParser {
       }
 
       if (!response.next) break;
-      await this.delay(REQUEST_DELAY);
+      await delay(REQUEST_DELAY);
     }
 
-    const unique = this.dedupeByTitle([...games.values()]);
+    const unique = dedupeByTitle([...games.values()]);
 
     console.log(
       `📊 VK Play: найдено ${unique.length} игр (${ONLY_DISCOUNTED ? 'только со скидкой' : 'все продаваемые'})`
@@ -150,43 +151,10 @@ export class VkPlayParser extends BaseParser {
       imageUrl: item.picture_horizontal || item.picture || item.logo,
       description: description || undefined,
       currency: cost.currency || 'RUB',
-      saleEndDate: this.parseSaleEndDate(cost.date_end),
+      saleEndDate: parseMoscowDate(cost.date_end),
     };
   }
 
-  /**
-   * Пара (title, platform) в базе уникальна, поэтому одинаковые названия внутри одного
-   * прогона схлопываем заранее — иначе одна и та же запись создаётся и тут же перезаписывается.
-   */
-  private dedupeByTitle(games: ParsedGame[]): ParsedGame[] {
-    const byTitle = new Map<string, ParsedGame>();
-
-    for (const game of games) {
-      const key = game.title.toLowerCase();
-      const existing = byTitle.get(key);
-
-      // Из дублей оставляем вариант с большей скидкой.
-      if (!existing || game.discountPercent > existing.discountPercent) {
-        byTitle.set(key, game);
-      }
-    }
-
-    return [...byTitle.values()];
-  }
-
-  /**
-   * API отдаёт наивную строку по московскому времени.
-   */
-  private parseSaleEndDate(raw?: string): Date | undefined {
-    if (!raw) return undefined;
-
-    const date = new Date(`${raw.replace(' ', 'T')}+03:00`);
-    return Number.isFinite(date.getTime()) ? date : undefined;
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 export default VkPlayParser;

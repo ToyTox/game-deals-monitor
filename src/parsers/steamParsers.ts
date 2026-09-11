@@ -2,6 +2,7 @@ import axios from 'axios';
 import { load as loadHtml } from 'cheerio';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
+import { dedupeByTitle, delay, parsePriceText } from './helpers.js';
 
 const STEAM_STORE = 'https://store.steampowered.com';
 
@@ -94,7 +95,7 @@ export class SteamParser extends BaseParser {
       }
     }
 
-    const unique = this.dedupeByTitle([...games.values()]);
+    const unique = dedupeByTitle([...games.values()]);
 
     console.log(
       `📊 Steam (${COUNTRY_CODE}/${LANGUAGE}): найдено ${unique.length} игр (витрина: ${featured.size})`
@@ -193,7 +194,7 @@ export class SteamParser extends BaseParser {
         if (total > 0 && (page + 1) * SEARCH_PAGE_SIZE >= total) break;
 
         // Steam не любит частые запросы к поиску.
-        await this.delay(700);
+        await delay(700);
       } catch (error) {
         console.error(
           `❌ Steam акции, страница ${page + 1}:`,
@@ -228,12 +229,12 @@ export class SteamParser extends BaseParser {
 
       const discountPercent = Number.parseInt(priceBlock.attr('data-discount') || '0', 10) || 0;
 
-      const originalFromText = this.parsePriceText(
+      const originalFromText = parsePriceText(
         row.find('.discount_original_price').first().text()
       );
       const originalPrice =
         originalFromText ??
-        (discountPercent > 0
+        (discountPercent > 0 && discountPercent < 100
           ? Math.round((currentPrice / (1 - discountPercent / 100)) * 100) / 100
           : currentPrice);
 
@@ -279,46 +280,6 @@ export class SteamParser extends BaseParser {
     };
   }
 
-  /**
-   * Пара (title, platform) в базе уникальна, поэтому одинаковые названия внутри одного
-   * прогона схлопываем заранее — иначе одна и та же запись создаётся и тут же перезаписывается.
-   */
-  private dedupeByTitle(games: ParsedGame[]): ParsedGame[] {
-    const byTitle = new Map<string, ParsedGame>();
-
-    for (const game of games) {
-      const key = game.title.toLowerCase();
-      const existing = byTitle.get(key);
-
-      // Из дублей оставляем вариант с большей скидкой.
-      if (!existing || game.discountPercent > existing.discountPercent) {
-        byTitle.set(key, game);
-      }
-    }
-
-    return [...byTitle.values()];
-  }
-
-  /** "1 999 руб." -> 1999, "$19.99" -> 19.99. */
-  private parsePriceText(text?: string | null): number | undefined {
-    if (!text) return undefined;
-
-    const cleaned = text.replace(/[^\d.,]/g, '');
-    if (!cleaned) return undefined;
-
-    // Разделитель считаем десятичным, только если после него ровно две цифры.
-    const decimal = cleaned.match(/^(.*)([.,])(\d{2})$/);
-    const normalized = decimal
-      ? `${decimal[1].replace(/[.,]/g, '')}.${decimal[3]}`
-      : cleaned.replace(/[.,]/g, '');
-
-    const value = Number.parseFloat(normalized);
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 export default SteamParser;

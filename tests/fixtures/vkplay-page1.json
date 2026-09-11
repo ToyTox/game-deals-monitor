@@ -1,0 +1,58 @@
+{
+  "count": 6,
+  "next": "https://api.vkplay.ru/play/games/?page=2",
+  "previous": null,
+  "results": [
+    {
+      "id": 101,
+      "slug": "atomic-heart",
+      "name": "  Atomic Heart  ",
+      "is_sellable": true,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 2999,
+        "actual_cost": 1999,
+        "has_discount": true,
+        "discount": 33,
+        "date_end": "2031-02-23 00:00:00"
+      },
+      "picture_horizontal": "https://cdn.test/101/horizontal.jpg",
+      "short_descr": "Шутер про роботов"
+    },
+    {
+      "id": 102,
+      "slug": "no-discount-game",
+      "name": "Игра без скидки",
+      "is_sellable": true,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 1500,
+        "actual_cost": 1500,
+        "has_discount": false,
+        "discount": 0,
+        "date_end": ""
+      },
+      "picture": "https://cdn.test/102/picture.jpg"
+    },
+    {
+      "id": 103,
+      "slug": "not-sellable",
+      "name": "Недоступна к покупке",
+      "is_sellable": false,
+      "cost_info": {
+        "currency": "RUB",
+        "original_cost": 999,
+        "actual_cost": 499,
+        "has_discount": true,
+        "discount": 50
+      }
+    },
+    {
+      "id": 104,
+      "slug": "no-cost-info",
+      "name": "Без блока цены",
+      "is_sellable": true,
+      "cost_info": null
+    }
+  ]
+}

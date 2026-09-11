@@ -13,7 +13,8 @@ if (process.env.NODE_ENV === "production") {
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = new PrismaClient({
       adapter,
-      log: ["query", "error", "warn"],
+      // В тестах NODE_ENV=test, и логирование каждого запроса делает вывод нечитаемым.
+      log: process.env.NODE_ENV === "test" ? ["error"] : ["query", "error", "warn"],
     });
   }
   prisma = globalForPrisma.prisma;

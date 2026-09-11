@@ -1,5 +1,4 @@
 node_modules/
-package-lock.json
 yarn.lock
 .env
 .env.local
@@ -7,6 +6,8 @@ yarn.lock
 dist/
 src/generated/
 build/
+.tmp/
+coverage/
 *.tsbuildinfo
 *.db
 *.db-shm

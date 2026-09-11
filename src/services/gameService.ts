@@ -191,15 +191,15 @@ export class GameService {
   async search(query: string) {
     const lowerQuery = query.toLowerCase();
 
-    return prisma.game.findMany({
-      where: {
-        title: {
-          contains: lowerQuery,
-        },
-      },
+    // Встроенный в SQLite LIKE сворачивает регистр только для ASCII, поэтому
+    // кириллицу фильтруем в JS — иначе «ВЕДЬМАК» не находит «Ведьмак».
+    const games = await prisma.game.findMany({
       orderBy: { discountPercent: 'desc' },
-      take: 20,
     });
+
+    return games
+      .filter((game) => game.title.toLowerCase().includes(lowerQuery))
+      .slice(0, 20);
   }
 }
 
