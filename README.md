@@ -38,15 +38,16 @@ git clone https://github.com/ToyTox/game-deals-monitor.git
 cd game-deals-monitor
 
 npm install
-cp .env.example .env
-
-npm run prisma:generate
-npm run prisma:migrate     # первый раз спросит имя миграции, например init
-
 npm run dev
 ```
 
-> `src/generated/` лежит в `.gitignore`, поэтому `npm run prisma:generate` после клона обязателен: без него не разрешится импорт `./generated/prisma/client.js` в `src/database.ts`. В `npm run build` генерация уже встроена (`prisma generate && tsc`).
+`npm install` через хук `postinstall` сам вызывает `npm run setup` (`scripts/setup.mjs`), который делает три вещи:
+
+1. создаёт `.env` из `.env.example`, если файла ещё нет (существующий не трогает);
+2. генерирует Prisma-клиент в `src/generated/` — каталог в `.gitignore`, без генерации не разрешится импорт `./generated/prisma/client.js` в `src/database.ts`;
+3. применяет миграции через `prisma migrate deploy` — неинтерактивно, имя миграции спрашивать не будет и базу создаст с нуля.
+
+Если нужно прогнать подготовку повторно (например, после `git pull` с новыми миграциями) — `npm run setup`. Переменная `SKIP_DB_MIGRATE=1` отключает третий шаг: так собирается Docker-образ, где БД на этапе сборки ещё недоступна.
 
 Сервер поднимется на `http://localhost:3000`. По этому адресу открывается веб-интерфейс: статистика, ручки всех API-методов и карточки найденных игр. JSON-карта эндпоинтов переехала на `/api`.
 
@@ -93,12 +94,13 @@ curl http://localhost:3000/api/admin/health
 
 | Команда | Что делает |
 |---|---|
+| `npm run setup` | Подготовка проекта: `.env` + генерация клиента + `prisma migrate deploy`. Запускается сам на `npm install` |
 | `npm run dev` | Запуск в режиме разработки с автоперезапуском (`tsx watch src/index.ts`) |
-| `npm run build` | Компиляция TypeScript в `dist/` |
-| `npm start` | Запуск собранной версии (`node dist/index.js`) |
-| `npm run prisma:generate` | Генерация Prisma-клиента |
-| `npm run prisma:migrate` | Создание и применение миграции (`prisma migrate dev`) |
-| `npm run prisma:studio` | Веб-интерфейс Prisma Studio для просмотра БД |
+| `npm run build` | Генерация Prisma-клиента и компиляция TypeScript в `dist/` |
+| `npm start` | Применить миграции и запустить собранную версию (`prisma migrate deploy && node dist/index.js`) |
+| `npm run db:migrate` | Создать новую миграцию после правки схемы (`prisma migrate dev`, спросит имя) |
+| `npm run db:reset` | Снести БД и накатить миграции заново (`prisma migrate reset`) |
+| `npm run db:studio` | Веб-интерфейс Prisma Studio для просмотра БД |
 | `npm test` | Заглушка — тестов в проекте нет |
 
 ## 🌐 API
@@ -517,6 +519,8 @@ docker compose up -d
 
 Данные Postgres лежат в томе `postgres_data`.
 
+Сборка образа ничего не спрашивает и не требует живой БД: `npm ci` через `postinstall` генерирует Prisma-клиент, а миграции применяются уже при старте контейнера — `CMD npm start` разворачивается в `prisma migrate deploy && node dist/index.js`. На этапе `docker build` шаг с миграциями отключён через `ENV SKIP_DB_MIGRATE=1`.
+
 > ⚠️ **Перед первым `docker compose up` переезд на PostgreSQL нужно доделать руками.** `docker-compose.yml` передаёт приложению `DATABASE_URL` для PostgreSQL, а проект настроен на SQLite. В таком виде контейнер работать не будет. Нужно:
 >
 > 1. Поменять провайдер в `prisma/schema.prisma`:
@@ -593,6 +597,8 @@ game-deals-monitor/
 │   └── services/
 │       ├── parserService.ts # оркестрация парсеров
 │       └── gameService.ts   # выборки, статистика, поиск
+├── scripts/
+│   └── setup.mjs            # postinstall: .env + prisma generate + migrate deploy
 ├── prisma.config.ts         # конфиг Prisma CLI (схема, миграции, DATABASE_URL)
 ├── docker-compose.yml
 ├── Dockerfile
