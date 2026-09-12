@@ -1,0 +1,50 @@
+{
+  "pages": 157,
+  "productCount": 7501,
+  "products": [
+    {
+      "id": "1211776926",
+      "slug": "dead_age_1_2_bundle",
+      "title": "Dead Age 1 + 2 Bundle",
+      "coverHorizontal": "https://images.gog-statics.com/5a4a5c397cdce1d6336ff3676f7f0272200c2b7beb2682a4650538994ccba82d.png",
+      "storeLink": "https://www.gog.com/ru/game/dead_age_1_2_bundle",
+      "productType": "pack",
+      "price": {
+        "final": "33 ₽",
+        "base": "679 ₽",
+        "discount": "-95%",
+        "finalMoney": {
+          "amount": "33",
+          "currency": "RUB",
+          "discount": "646"
+        },
+        "baseMoney": {
+          "amount": "679",
+          "currency": "RUB"
+        }
+      }
+    },
+    {
+      "id": "2137859649",
+      "slug": "the_green_light",
+      "title": "The Green Light",
+      "coverHorizontal": "https://images.gog-statics.com/c0f4edbee6827b4b9533f63fa86562b55e206f24743015e103ea433154d9a7c3.png",
+      "storeLink": "https://www.gog.com/ru/game/the_green_light",
+      "productType": "game",
+      "price": {
+        "final": "14 ₽",
+        "base": "299 ₽",
+        "discount": "-95%",
+        "finalMoney": {
+          "amount": "14",
+          "currency": "RUB",
+          "discount": "285"
+        },
+        "baseMoney": {
+          "amount": "299",
+          "currency": "RUB"
+        }
+      }
+    }
+  ]
+}

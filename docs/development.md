@@ -48,7 +48,8 @@ game-deals-monitor/
 │   └── schema.prisma        # модели Game, PriceHistory, UpdateLog
 ├── public/                  # веб-интерфейс (index.html, app.js, styles.css)
 ├── src/
-│   ├── index.ts             # запуск: listen, cron, graceful shutdown
+│   ├── index.ts             # композиция: env, cron, graceful shutdown
+│   ├── server.ts            # startServer(): проверка БД, listen, фоновый прогон парсеров
 │   ├── app.ts               # createApp(): сборка Express без побочных эффектов
 │   ├── database.ts          # singleton PrismaClient (с логами вне production)
 │   ├── generated/prisma/    # сгенерированный Prisma-клиент (в .gitignore)
@@ -68,6 +69,7 @@ game-deals-monitor/
 │       └── gameService.ts   # выборки, статистика, поиск
 ├── tests/
 │   ├── unit/                # парсеры на фикстурах
+│   ├── startup/             # startServer(): порядок старта, занятый порт
 │   ├── db/                  # saveGames и GameService на реальной SQLite
 │   ├── http/                # роуты через supertest
 │   ├── helpers/             # resetDb(), фикстуры, подмена env
