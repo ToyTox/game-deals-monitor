@@ -1,0 +1,28 @@
+{
+  "pages": 5,
+  "productCount": 228,
+  "products": [
+    {
+      "id": "1410521179",
+      "slug": "gently_packed_demo",
+      "title": "Gently Packed Demo",
+      "coverHorizontal": "https://images.gog-statics.com/859aa302585f7e2c375b290b70e253b377509d7330fc0fbc6fcdb7054a998dc5.png",
+      "storeLink": "https://www.gog.com/ru/game/gently_packed_demo",
+      "productType": "game",
+      "price": {
+        "final": "0 ₽",
+        "base": "0 ₽",
+        "discount": null,
+        "finalMoney": {
+          "amount": "0",
+          "currency": "RUB",
+          "discount": "0"
+        },
+        "baseMoney": {
+          "amount": "0",
+          "currency": "RUB"
+        }
+      }
+    }
+  ]
+}

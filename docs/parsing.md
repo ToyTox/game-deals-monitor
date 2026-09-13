@@ -19,7 +19,7 @@
 |---|---|
 | Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian` (витрина: `specials`, `top_sellers`, `new_releases`) + `GET https://store.steampowered.com/search/results/?specials=1&infinite=1&json=1&cc=ru&l=russian` — до `STEAM_SEARCH_PAGES` страниц по 100 игр |
 | Epic Games | `POST https://www.epicgames.com/graphql` (запрос `Catalog.searchStore`, первые 100 позиций) |
-| GOG | `GET https://api.gog.com/v2/games/products` — до 5 страниц по 50 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`priceRange: '0,0'`) |
+| GOG | `GET https://catalog.gog.com/v1/catalog?order=desc:discount&productType=in:game,pack` — до 5 страниц по 48 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`price=between:0,0`) |
 | VK Play | `GET https://api.vkplay.ru/play/games/?page=N` — постраничный обход каталога (24 записи на страницу, до `VKPLAY_MAX_PAGES`); фильтров у API нет, скидки отбираются на нашей стороне по `cost_info.has_discount` |
 
 ## Тип товара
@@ -58,6 +58,14 @@ STEAM_COUNTRY_CODE=kz
 STEAM_LANGUAGE=russian
 ```
 
+## GOG: тот же регион, но фиксированный
+
+`GOGParser` ходит в витринный каталог с `countryCode=RU`, `currencyCode=RUB`, `locale=ru-RU` — так цены GOG и Steam оказываются в одной валюте. В отличие от Steam, регион зашит в модуль: переменных окружения у GOG нет.
+
+Суммы API отдаёт строками (`"33"`, `"1399"`), скидку — строкой вида `"-95%"`. Если `discount` пустой, процент считается из базовой и финальной цены; у изначально бесплатных игр он остаётся нулевым, а не выставляется в 100. Проход по бесплатным (`price=between:0,0`) собирает и демоверсии: у них тот же `productType: "game"`, отличить их по ответу API нельзя.
+
+`catalog.gog.com` — внутренний API магазина без версионных гарантий. URL и параметры закреплены тестами: прошлый эндпоинт (`api.gog.com/v2/games/products`) отвечал 404, а парсер молча возвращал пустой список.
+
 ## Расписание
 
 Плановый запуск настраивается переменной `CRON_SCHEDULE` (cron-синтаксис `node-cron`). По умолчанию — `0 6 * * *`, то есть ежедневно в 06:00 **по времени сервера**.
@@ -68,5 +76,5 @@ STEAM_LANGUAGE=russian
 */30 * * * *  каждые 30 минут
 ```
 
-Расписание регистрируется при старте, независимо от `RUN_ON_STARTUP` — последняя отвечает только за разовый прогон в момент запуска.
+Расписание регистрируется при старте, независимо от `RUN_ON_STARTUP` — последняя отвечает только за разовый прогон в момент запуска. Этот разовый прогон идёт в фоне: сервер начинает отвечать сразу, не дожидаясь обхода площадок.
 
