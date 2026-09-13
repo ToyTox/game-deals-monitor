@@ -14,6 +14,7 @@
 | `currency` | `String?` | Валюта цен, ISO 4217 (для российского Steam — `RUB`) |
 | `discountPercent` | `Float` | По умолчанию `0` |
 | `isFree` | `Boolean` | По умолчанию `false` |
+| `kind` | `String` | Тип товара: `game`, `demo`, `dlc` или `kit`, по умолчанию `game`. Определяется по названию в `saveGames`, см. [Тип товара](parsing.md#тип-товара) |
 | `gameUrl` | `String` | Ссылка на страницу игры |
 | `imageUrl` | `String?` | Обложка |
 | `description` | `String?` | Описание |
@@ -23,7 +24,7 @@
 
 Уникальность теперь составная: `@@unique([title, platform])` вместо глобально уникального `title`. Одна и та же игра может присутствовать на нескольких площадках под одним названием.
 
-Индексы: `platform`, `discountPercent`, `isFree`, `createdAt`.
+Индексы: `platform`, `discountPercent`, `isFree`, `kind`, `createdAt`.
 
 ## `PriceHistory`
 

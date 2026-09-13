@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { dedupeByTitle, parseMoscowDate, parsePriceText } from '../../src/parsers/helpers.js';
+import {
+  dedupeByTitle,
+  detectGameKind,
+  parseMoscowDate,
+  parsePriceText,
+} from '../../src/parsers/helpers.js';
 import { ParsedGame } from '../../src/types.js';
 
 function game(title: string, discountPercent: number): ParsedGame {
@@ -77,6 +82,45 @@ describe('dedupeByTitle', () => {
 
   it('на пустом списке возвращает пустой', () => {
     expect(dedupeByTitle([])).toEqual([]);
+  });
+});
+
+// Названия взяты из реальных ответов GOG, Steam и VK Play.
+describe('detectGameKind', () => {
+  it.each([
+    'Black Flower Demo',
+    'FRONT MISSION 3: Remake DEMO',
+    'Whirlight - No Time To Trip - Demo',
+    'Приключения Капитана Блада Demo',
+    'Ведьмак 3: демоверсия',
+  ])('демо: %s', (title) => {
+    expect(detectGameKind(title)).toBe('demo');
+  });
+
+  it.each([
+    'House Flipper - Pets DLC',
+    'Ghostrunner 2 Season Pass',
+    'Bridge Constructor - Trains - Expansion Pack',
+    'Wartales: Дополнение «Пираты Белериона»',
+    // Проверяется раньше kit и не путается с Bundle
+    'Nox Archaist DLC Bundle',
+  ])('dlc: %s', (title) => {
+    expect(detectGameKind(title)).toBe('dlc');
+  });
+
+  it.each(["Baldur's Gate 3 Toolkit", 'REDkit для игры «Ведьмак 3»'])('kit: %s', (title) => {
+    expect(detectGameKind(title)).toBe('kit');
+  });
+
+  // Слово должно стоять отдельно: иначе под фильтр попадают обычные игры.
+  it.each([
+    'Labyrinth Of The Demon King',
+    'Demolish & Build',
+    'Охотник на демонов 3: Новая эра',
+    'Creature Kitchen',
+    'Cyberpunk 2077',
+  ])('игра: %s', (title) => {
+    expect(detectGameKind(title)).toBe('game');
   });
 });
 

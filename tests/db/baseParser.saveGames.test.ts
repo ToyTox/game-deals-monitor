@@ -114,6 +114,32 @@ describe('BaseParser.saveGames', () => {
     });
   });
 
+  describe('тип товара', () => {
+    it('при создании выставляется по названию', async () => {
+      await new TestParser('gog').saveGames([
+        game({ title: 'Black Flower Demo' }),
+        game({ title: 'Portal' }),
+      ]);
+
+      const saved = await prisma.game.findMany({ orderBy: { title: 'asc' } });
+      expect(saved.map((g) => [g.title, g.kind])).toEqual([
+        ['Black Flower Demo', 'demo'],
+        ['Portal', 'game'],
+      ]);
+    });
+
+    // Так размечаются записи, созданные до появления колонки или до правки правил.
+    it('при обновлении пересчитывается у уже сохранённой записи', async () => {
+      await prisma.game.create({
+        data: { title: 'House Flipper - Pets DLC', platform: 'steam', gameUrl: 'https://example.test' },
+      });
+
+      await new TestParser().saveGames([game({ title: 'House Flipper - Pets DLC' })]);
+
+      expect((await prisma.game.findFirstOrThrow()).kind).toBe('dlc');
+    });
+  });
+
   describe('условие записи истории цен', () => {
     const seed = () => new TestParser().saveGames([game()]);
 

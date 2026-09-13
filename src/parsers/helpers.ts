@@ -1,4 +1,34 @@
-import { ParsedGame } from '../types.js';
+import { GameKind, ParsedGame } from '../types.js';
+
+// \b в JS-регулярках не знает кириллицу, поэтому границы слова задаём через \p{L}\p{N}.
+const NOT_WORD_BEFORE = '(?<![\\p{L}\\p{N}])';
+const NOT_WORD_AFTER = '(?![\\p{L}\\p{N}])';
+
+const KIND_PATTERNS: [GameKind, RegExp][] = [
+  ['demo', new RegExp(`${NOT_WORD_BEFORE}(demo|демо|демоверсия)${NOT_WORD_AFTER}`, 'iu')],
+  [
+    'dlc',
+    new RegExp(
+      `${NOT_WORD_BEFORE}(dlc|season pass|expansion|дополнение|сезонный абонемент)${NOT_WORD_AFTER}`,
+      'iu'
+    ),
+  ],
+  // «kit» в конце слова: Toolkit, REDkit. Kitchen не задевается.
+  ['kit', new RegExp(`kit${NOT_WORD_AFTER}`, 'iu')],
+];
+
+/**
+ * Тип товара по названию. Структурного признака у площадок нет: у демо в каталоге GOG
+ * productType "game", а VK Play дополнения никак не помечает.
+ *
+ * Правила проверяются по порядку, поэтому «Nox Archaist DLC Bundle» — dlc.
+ */
+export function detectGameKind(title: string): GameKind {
+  for (const [kind, pattern] of KIND_PATTERNS) {
+    if (pattern.test(title)) return kind;
+  }
+  return 'game';
+}
 
 /**
  * Пара (title, platform) в базе уникальна, поэтому одинаковые названия внутри одного
