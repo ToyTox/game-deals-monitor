@@ -5,12 +5,27 @@ import parserService from "../services/parserService.js";
 const router = Router();
 
 /**
+ * Платформы из query: `?platform=steam,gog` или повторённый `?platform=steam&platform=gog`
+ * (Express отдаёт его массивом). Регистр не важен, пустые значения и дубли отбрасываются.
+ */
+function parsePlatforms(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const platforms = values
+    .filter((v): v is string => typeof v === "string")
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(platforms)];
+}
+
+/**
  * GET /api/games
  * Получить все игры со фильтрацией
  */
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const platform = req.query.platform as string | undefined;
+    const platform = parsePlatforms(req.query.platform);
+    const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
     const minDiscount = req.query.minDiscount
       ? parseInt(req.query.minDiscount as string)
       : undefined;
@@ -25,6 +40,7 @@ router.get("/", async (req: Request, res: Response) => {
       minDiscount,
       freeOnly,
       excludeFree,
+      sort,
       limit,
       offset,
     });

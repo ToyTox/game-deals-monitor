@@ -206,24 +206,43 @@ function updatePager() {
 // ---- Разделы каталога: бесплатные игры и скидки ----
 const PAGE_SIZES = [12, 24, 48, 96];
 
+// Ключи совпадают с GAME_SORTS в src/services/gameService.ts
+const SORT_LABELS = {
+  discount: 'По скидке',
+  price_asc: 'Сначала дешёвые',
+  price_desc: 'Сначала дорогие',
+  newest: 'Новые первыми',
+  title: 'По названию',
+  ending: 'Скоро закончатся'
+};
+
 const sections = {
   free: {
     title: 'бесплатные игры',
     params: { free: 'true' },
     loading: 'Загрузка бесплатных игр…',
     empty: 'Бесплатных игр пока нет',
+    // Цена и скидка у бесплатных одинаковые — сортировать по ним бессмысленно
+    sorts: ['newest', 'title', 'ending'],
+    sort: 'newest',
+    platforms: [],
     page: 1,
     pageSize: 12,
-    total: 0
+    total: 0,
+    requestId: 0
   },
   deals: {
     title: 'скидки',
     params: { free: 'false', minDiscount: '1' },
     loading: 'Загрузка скидок…',
     empty: 'Игр со скидкой пока нет',
+    sorts: ['discount', 'price_asc', 'price_desc', 'newest', 'title', 'ending'],
+    sort: 'discount',
+    platforms: [],
     page: 1,
     pageSize: 12,
-    total: 0
+    total: 0,
+    requestId: 0
   }
 };
 
@@ -235,6 +254,72 @@ function setSectionState(key, cls, msg) {
   const el = $(`${key}-state`);
   el.className = cls;
   el.textContent = msg;
+}
+
+// ---- Фильтры разделов: платформы и сортировка ----
+const FILTERS_STORAGE_KEY = 'sectionFilters';
+
+// Заполняется в loadPlatforms; пока пусто — рисуем только сортировку
+let platformList = [];
+
+function saveFilters() {
+  const data = {};
+  Object.entries(sections).forEach(([key, s]) => {
+    data[key] = { platforms: s.platforms, sort: s.sort };
+  });
+  try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+function restoreFilters() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(FILTERS_STORAGE_KEY)); } catch (e) {}
+  if (!saved || typeof saved !== 'object') return;
+
+  Object.entries(sections).forEach(([key, s]) => {
+    const f = saved[key];
+    if (!f) return;
+    if (s.sorts.includes(f.sort)) s.sort = f.sort;
+    if (Array.isArray(f.platforms)) s.platforms = f.platforms.filter(p => typeof p === 'string');
+  });
+}
+
+function renderFilters(key) {
+  const s = sections[key];
+  const chips = platformList.length > 0
+    ? `<div class="filter-chips" role="group" aria-label="Платформы">
+        <button type="button" class="chip" data-platform="">Все</button>
+        ${platformList.map(p => `<button type="button" class="chip" data-platform="${esc(p)}">${esc(p)}</button>`).join('')}
+      </div>`
+    : '';
+
+  $(`${key}-filters`).innerHTML = `
+    ${chips}
+    <label class="filter-sort">
+      Сортировка:
+      <select data-sort>
+        ${s.sorts.map(k => `<option value="${k}"${k === s.sort ? ' selected' : ''}>${esc(SORT_LABELS[k])}</option>`).join('')}
+      </select>
+    </label>
+  `;
+  syncChips(key);
+}
+
+// Подсветка чипов по состоянию — без перерисовки, чтобы не терять фокус с клавиатуры
+function syncChips(key) {
+  const s = sections[key];
+  $(`${key}-filters`).querySelectorAll('.chip').forEach(chip => {
+    const p = chip.dataset.platform;
+    const on = p ? s.platforms.includes(p) : s.platforms.length === 0;
+    chip.classList.toggle('is-active', on);
+    chip.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function applyFilters(key) {
+  sections[key].page = 1;
+  saveFilters();
+  syncChips(key);
+  loadSection(key);
 }
 
 // Номера страниц: первая, последняя, соседи текущей; остальное — многоточие
@@ -287,14 +372,20 @@ async function loadSection(key) {
 
   setSectionState(key, 'state-loading', s.loading);
 
+  // Быстрые клики по чипам шлют запросы внахлёст — рисуем только ответ на последний
+  const requestId = ++s.requestId;
+
   try {
     const query = new URLSearchParams({
       ...s.params,
+      sort: s.sort,
       limit: String(s.pageSize),
       offset: String((s.page - 1) * s.pageSize)
     });
+    if (s.platforms.length > 0) query.set('platform', s.platforms.join(','));
 
     const data = await api('/api/games?' + query.toString());
+    if (requestId !== s.requestId) return;
     s.total = data.total;
 
     // Страница могла уехать за границы (например, после парсинга) — вернёмся на последнюю
@@ -306,7 +397,7 @@ async function loadSection(key) {
 
     if (!data.games || data.games.length === 0) {
       grid.innerHTML = '';
-      setSectionState(key, 'state-empty', s.empty);
+      setSectionState(key, 'state-empty', s.platforms.length > 0 ? 'Ничего не найдено для выбранных платформ' : s.empty);
       $(`${key}-meta`).textContent = '';
     } else {
       setSectionState(key, '', '');
@@ -317,6 +408,7 @@ async function loadSection(key) {
 
     renderPager(key);
   } catch (e) {
+    if (requestId !== s.requestId) return;
     grid.innerHTML = '';
     $(`${key}-meta`).textContent = '';
     $(`${key}-pager`).innerHTML = '';
@@ -338,6 +430,30 @@ async function goToPage(key, page) {
 }
 
 Object.keys(sections).forEach(key => {
+  const filters = $(`${key}-filters`);
+
+  filters.addEventListener('click', (e) => {
+    const chip = e.target.closest('button[data-platform]');
+    if (!chip) return;
+    const s = sections[key];
+    const p = chip.dataset.platform;
+    if (!p) {
+      if (s.platforms.length === 0) return;
+      s.platforms = [];
+    } else {
+      s.platforms = s.platforms.includes(p)
+        ? s.platforms.filter(x => x !== p)
+        : [...s.platforms, p];
+    }
+    applyFilters(key);
+  });
+
+  filters.addEventListener('change', (e) => {
+    if (!e.target.matches('select[data-sort]')) return;
+    sections[key].sort = e.target.value;
+    applyFilters(key);
+  });
+
   const pager = $(`${key}-pager`);
 
   pager.addEventListener('click', (e) => {
@@ -444,6 +560,20 @@ async function loadPlatforms() {
   try {
     const data = await api('/api/admin/platforms');
     const platforms = data.platforms || [];
+
+    // Сохранённая площадка могла пропасть из списка: чипа для неё нет,
+    // а фильтр по ней молча отсекал бы все игры раздела
+    platformList = platforms;
+    let pruned = false;
+    Object.values(sections).forEach(s => {
+      const kept = s.platforms.filter(p => platforms.includes(p));
+      if (kept.length !== s.platforms.length) {
+        s.platforms = kept;
+        pruned = true;
+      }
+    });
+    if (pruned) saveFilters();
+    Object.keys(sections).forEach(key => renderFilters(key));
 
     const fPlatform = $('f-platform');
     const fPlatformName = $('f-platform-name');
@@ -786,6 +916,9 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e
 // Init on load (скрипт с defer — DOM уже разобран)
 (async () => {
   showEmpty('Выберите ручку API выше — результат появится здесь');
+  restoreFilters();
+  // Сортировка видна сразу, даже если список платформ не загрузится
+  Object.keys(sections).forEach(key => renderFilters(key));
   await Promise.all([loadHealth(), loadStats(), loadPlatforms()]);
   await loadSections();
 })();

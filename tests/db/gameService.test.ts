@@ -5,7 +5,8 @@ import { prisma, resetDb } from '../helpers/db.js';
 type GameSeed = {
   title: string;
   platform?: string;
-  currentPrice?: number;
+  /** null — игра без цены (так бывает у предзаказов и снятых с продажи) */
+  currentPrice?: number | null;
   originalPrice?: number;
   currency?: string;
   discountPercent?: number;
@@ -13,6 +14,7 @@ type GameSeed = {
   /** Задавать явно там, где проверяется порядок: иначе две записи, созданные
    *  в одну миллисекунду, получают одинаковый createdAt и сортировка плавает. */
   createdAt?: Date;
+  saleEndDate?: Date;
 };
 
 async function seedGame(seed: GameSeed) {
@@ -22,11 +24,12 @@ async function seedGame(seed: GameSeed) {
       platform: seed.platform ?? 'steam',
       gameUrl: `https://example.test/${encodeURIComponent(seed.title)}`,
       originalPrice: seed.originalPrice ?? 1000,
-      currentPrice: seed.currentPrice ?? 500,
+      currentPrice: seed.currentPrice === undefined ? 500 : seed.currentPrice,
       currency: seed.currency ?? 'RUB',
       discountPercent: seed.discountPercent ?? 50,
       isFree: seed.isFree ?? false,
       ...(seed.createdAt ? { createdAt: seed.createdAt } : {}),
+      ...(seed.saleEndDate ? { saleEndDate: seed.saleEndDate } : {}),
     },
   });
 }
@@ -63,6 +66,82 @@ describe('GameService', () => {
       expect(result.games.map((g) => g.title)).toEqual(['B']);
       // total — количество отфильтрованных записей, а не размер страницы.
       expect(result.total).toBe(1);
+    });
+
+    it('фильтрует по списку платформ, пустой список фильтр не включает', async () => {
+      await seedGame({ title: 'Steam', platform: 'steam', discountPercent: 30 });
+      await seedGame({ title: 'GOG', platform: 'gog', discountPercent: 20 });
+      await seedGame({ title: 'Epic', platform: 'epic', discountPercent: 10 });
+
+      const both = await gameService.getGames({ platform: ['steam', 'gog'] });
+
+      expect(both.games.map((g) => g.title)).toEqual(['Steam', 'GOG']);
+      expect(both.total).toBe(2);
+      expect((await gameService.getGames({ platform: ['epic'] })).total).toBe(1);
+      expect((await gameService.getGames({ platform: [] })).total).toBe(3);
+    });
+
+    describe('сортировки', () => {
+      async function titles(sort: string) {
+        return (await gameService.getGames({ sort })).games.map((g) => g.title);
+      }
+
+      it('price_asc и price_desc: игры без цены уходят в конец в обоих направлениях', async () => {
+        await seedGame({ title: 'Дорогая', currentPrice: 900 });
+        await seedGame({ title: 'Без цены', currentPrice: null });
+        await seedGame({ title: 'Дешёвая', currentPrice: 100 });
+
+        expect(await titles('price_asc')).toEqual(['Дешёвая', 'Дорогая', 'Без цены']);
+        expect(await titles('price_desc')).toEqual(['Дорогая', 'Дешёвая', 'Без цены']);
+      });
+
+      it('newest: последние добавленные идут первыми', async () => {
+        await seedGame({ title: 'Старая', createdAt: new Date('2026-01-01T00:00:00.000Z') });
+        await seedGame({ title: 'Новая', createdAt: new Date('2026-03-01T00:00:00.000Z') });
+        await seedGame({ title: 'Средняя', createdAt: new Date('2026-02-01T00:00:00.000Z') });
+
+        expect(await titles('newest')).toEqual(['Новая', 'Средняя', 'Старая']);
+      });
+
+      // Только латиница: SQLite сравнивает строки побайтово, и порядок
+      // кириллицы относительно латиницы здесь не проверяем.
+      it('title: по алфавиту', async () => {
+        await seedGame({ title: 'Portal' });
+        await seedGame({ title: 'Doom' });
+        await seedGame({ title: 'Half-Life' });
+
+        expect(await titles('title')).toEqual(['Doom', 'Half-Life', 'Portal']);
+      });
+
+      it('ending: ближайшее окончание акции первым, игры без даты в конце', async () => {
+        await seedGame({ title: 'Без даты' });
+        await seedGame({ title: 'Позже', saleEndDate: new Date('2026-10-01T00:00:00.000Z') });
+        await seedGame({ title: 'Раньше', saleEndDate: new Date('2026-09-20T00:00:00.000Z') });
+
+        expect(await titles('ending')).toEqual(['Раньше', 'Позже', 'Без даты']);
+      });
+
+      it('неизвестная сортировка заменяется сортировкой по скидке', async () => {
+        await seedGame({ title: 'Маленькая скидка', discountPercent: 10 });
+        await seedGame({ title: 'Большая скидка', discountPercent: 90 });
+
+        expect(await titles('bogus')).toEqual(['Большая скидка', 'Маленькая скидка']);
+        // Имя из прототипа объекта не должно считаться допустимым ключом.
+        expect(await titles('toString')).toEqual(['Большая скидка', 'Маленькая скидка']);
+      });
+
+      // Без добивочного ключа по id записи с равной скидкой могут меняться
+      // местами между запросами, и соседние страницы дублируют карточки.
+      it('при равных значениях страницы не пересекаются', async () => {
+        for (const title of ['A', 'B', 'C', 'D']) {
+          await seedGame({ title, discountPercent: 50 });
+        }
+
+        const first = await gameService.getGames({ limit: 2, offset: 0 });
+        const second = await gameService.getGames({ limit: 2, offset: 2 });
+
+        expect([...first.games, ...second.games].map((g) => g.title)).toEqual(['A', 'B', 'C', 'D']);
+      });
     });
 
     it('фильтрует по минимальной скидке и по признаку бесплатной', async () => {

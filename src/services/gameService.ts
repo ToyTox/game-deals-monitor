@@ -1,18 +1,49 @@
 import prisma from '../database.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { StatsResponse } from '../types.js';
+
+/**
+ * Допустимые сортировки списка игр. Последним ключом везде идёт id: без него
+ * записи с одинаковым значением (скидка 50%, одна дата) меняются местами между
+ * запросами, и при листании страниц карточки дублируются или пропадают.
+ */
+export const GAME_SORTS = {
+  discount: [{ discountPercent: 'desc' }, { id: 'asc' }],
+  price_asc: [{ currentPrice: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  price_desc: [{ currentPrice: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+  newest: [{ createdAt: 'desc' }, { id: 'desc' }],
+  title: [{ title: 'asc' }, { id: 'asc' }],
+  ending: [{ saleEndDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+} satisfies Record<string, Prisma.GameOrderByWithRelationInput[]>;
+
+export type GameSort = keyof typeof GAME_SORTS;
+
+export const DEFAULT_GAME_SORT: GameSort = 'discount';
+
+function isGameSort(value: unknown): value is GameSort {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GAME_SORTS, value);
+}
 
 export class GameService {
   async getGames(filter?: {
-    platform?: string;
+    platform?: string | string[];
     minDiscount?: number;
     freeOnly?: boolean;
     excludeFree?: boolean;
+    /** Ключ из GAME_SORTS; неизвестное значение молча заменяется сортировкой по скидке */
+    sort?: string;
     limit?: number;
     offset?: number;
   }) {
     const where: any = {};
 
-    if (filter?.platform) {
+    if (Array.isArray(filter?.platform)) {
+      if (filter.platform.length === 1) {
+        where.platform = filter.platform[0];
+      } else if (filter.platform.length > 1) {
+        where.platform = { in: filter.platform };
+      }
+    } else if (filter?.platform) {
       where.platform = filter.platform;
     }
 
@@ -26,9 +57,11 @@ export class GameService {
       where.isFree = false;
     }
 
+    const sort = isGameSort(filter?.sort) ? filter.sort : DEFAULT_GAME_SORT;
+
     const games = await prisma.game.findMany({
       where,
-      orderBy: { discountPercent: 'desc' },
+      orderBy: GAME_SORTS[sort],
       take: filter?.limit || 100,
       skip: filter?.offset || 0,
       include: {

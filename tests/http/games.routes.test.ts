@@ -53,6 +53,36 @@ describe('GET /api/games', () => {
     expect(res.body.games.map((g: { title: string }) => g.title)).toEqual(['Steam сильная']);
   });
 
+  it('принимает несколько платформ списком или повторённым параметром, в любом регистре', async () => {
+    await seedGame('Steam игра');
+    await seedGame('GOG игра', { platform: 'gog' });
+    await seedGame('Epic игра', { platform: 'epic' });
+
+    for (const qs of ['platform=steam,gog', 'platform=steam&platform=gog', 'platform=GOG,Steam,,gog']) {
+      const res = await request(app).get(`/api/games?${qs}`).expect(200);
+
+      expect(res.body.total).toBe(2);
+      expect(res.body.games.map((g: { title: string }) => g.title).sort()).toEqual([
+        'GOG игра',
+        'Steam игра',
+      ]);
+    }
+  });
+
+  it('прокидывает сортировку, неизвестное или повторённое значение даёт сортировку по скидке', async () => {
+    await seedGame('Дорогая', { currentPrice: 900, discountPercent: 10 });
+    await seedGame('Дешёвая', { currentPrice: 100, discountPercent: 90 });
+
+    const titles = async (qs: string) =>
+      (await request(app).get(`/api/games?${qs}`).expect(200)).body.games.map(
+        (g: { title: string }) => g.title
+      );
+
+    expect(await titles('sort=price_desc')).toEqual(['Дорогая', 'Дешёвая']);
+    expect(await titles('sort=bogus')).toEqual(['Дешёвая', 'Дорогая']);
+    expect(await titles('sort=price_desc&sort=title')).toEqual(['Дешёвая', 'Дорогая']);
+  });
+
   // Строгое сравнение free === "true": другие написания фильтр не включают.
   it('признак free включается только точным значением "true"', async () => {
     await seedGame('Платная');
