@@ -18,6 +18,8 @@ model Game {
   currency        String?
   discountPercent Float    @default(0)
   isFree          Boolean  @default(false)
+  // game | demo | dlc | kit — выставляет BaseParser.saveGames по названию
+  kind            String   @default("game")
   gameUrl         String
   imageUrl        String?
   description     String?
@@ -33,6 +35,7 @@ model Game {
   @@index([platform])
   @@index([discountPercent])
   @@index([isFree])
+  @@index([kind])
   @@index([createdAt])
 }
 

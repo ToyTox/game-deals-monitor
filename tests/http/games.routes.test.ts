@@ -69,6 +69,24 @@ describe('GET /api/games', () => {
     }
   });
 
+  it('фильтрует по типу товара: списком, повторённым параметром, в любом регистре', async () => {
+    await seedGame('Игра', { discountPercent: 40 });
+    await seedGame('Демо', { kind: 'demo', discountPercent: 30 });
+    await seedGame('Дополнение', { kind: 'dlc', discountPercent: 20 });
+    await seedGame('Набор', { kind: 'kit', discountPercent: 10 });
+
+    const titles = async (qs: string) =>
+      (await request(app).get(`/api/games?${qs}`).expect(200)).body.games.map(
+        (g: { title: string }) => g.title
+      );
+
+    expect(await titles('kind=game')).toEqual(['Игра']);
+    expect(await titles('kind=demo,DLC')).toEqual(['Демо', 'Дополнение']);
+    expect(await titles('kind=game&kind=kit')).toEqual(['Игра', 'Набор']);
+    // Без параметра API, как и раньше, отдаёт все типы.
+    expect(await titles('')).toHaveLength(4);
+  });
+
   it('прокидывает сортировку, неизвестное или повторённое значение даёт сортировку по скидке', async () => {
     await seedGame('Дорогая', { currentPrice: 900, discountPercent: 10 });
     await seedGame('Дешёвая', { currentPrice: 100, discountPercent: 90 });

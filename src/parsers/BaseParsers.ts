@@ -1,5 +1,6 @@
 import { ParsedGame, Platform, UpdateResult } from '../types.js';
 import prisma from '../database.js';
+import { detectGameKind } from './helpers.js';
 
 export abstract class BaseParser {
   protected platform: Platform;
@@ -34,6 +35,7 @@ export abstract class BaseParser {
               currency: game.currency,
               discountPercent: game.discountPercent,
               isFree: game.isFree,
+              kind: detectGameKind(game.title),
               gameUrl: game.gameUrl,
               imageUrl: game.imageUrl,
               description: game.description,
@@ -69,6 +71,8 @@ export abstract class BaseParser {
               currency: game.currency,
               discountPercent: game.discountPercent,
               isFree: game.isFree,
+              // Пересчитываем и у старых записей: так до них доезжают поправки в правилах
+              kind: detectGameKind(game.title),
               gameUrl: game.gameUrl,
               imageUrl: game.imageUrl,
               description: game.description,

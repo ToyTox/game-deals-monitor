@@ -11,6 +11,7 @@ type GameSeed = {
   currency?: string;
   discountPercent?: number;
   isFree?: boolean;
+  kind?: string;
   /** Задавать явно там, где проверяется порядок: иначе две записи, созданные
    *  в одну миллисекунду, получают одинаковый createdAt и сортировка плавает. */
   createdAt?: Date;
@@ -28,6 +29,7 @@ async function seedGame(seed: GameSeed) {
       currency: seed.currency ?? 'RUB',
       discountPercent: seed.discountPercent ?? 50,
       isFree: seed.isFree ?? false,
+      kind: seed.kind ?? 'game',
       ...(seed.createdAt ? { createdAt: seed.createdAt } : {}),
       ...(seed.saleEndDate ? { saleEndDate: seed.saleEndDate } : {}),
     },
@@ -79,6 +81,23 @@ describe('GameService', () => {
       expect(both.total).toBe(2);
       expect((await gameService.getGames({ platform: ['epic'] })).total).toBe(1);
       expect((await gameService.getGames({ platform: [] })).total).toBe(3);
+    });
+
+    it('фильтрует по типу товара, неизвестные типы отбрасывает', async () => {
+      await seedGame({ title: 'Игра', discountPercent: 40 });
+      await seedGame({ title: 'Демо', kind: 'demo', discountPercent: 30 });
+      await seedGame({ title: 'Дополнение', kind: 'dlc', discountPercent: 20 });
+      await seedGame({ title: 'Набор', kind: 'kit', discountPercent: 10 });
+
+      const titles = async (kinds: string[]) =>
+        (await gameService.getGames({ kinds })).games.map((g) => g.title);
+
+      expect(await titles(['game'])).toEqual(['Игра']);
+      expect(await titles(['demo', 'dlc'])).toEqual(['Демо', 'Дополнение']);
+      expect(await titles(['game', 'bogus'])).toEqual(['Игра']);
+      // Только неизвестные значения, как и пустой список, фильтр не включают.
+      expect(await titles(['bogus'])).toHaveLength(4);
+      expect(await titles([])).toHaveLength(4);
     });
 
     describe('сортировки', () => {

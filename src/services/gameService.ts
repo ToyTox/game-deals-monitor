@@ -1,6 +1,6 @@
 import prisma from '../database.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { StatsResponse } from '../types.js';
+import { GAME_KINDS, GameKind, StatsResponse } from '../types.js';
 
 /**
  * Допустимые сортировки списка игр. Последним ключом везде идёт id: без него
@@ -30,6 +30,8 @@ export class GameService {
     minDiscount?: number;
     freeOnly?: boolean;
     excludeFree?: boolean;
+    /** Типы из GAME_KINDS; неизвестные отбрасываются, пустой список фильтр не включает */
+    kinds?: string[];
     /** Ключ из GAME_SORTS; неизвестное значение молча заменяется сортировкой по скидке */
     sort?: string;
     limit?: number;
@@ -55,6 +57,13 @@ export class GameService {
       where.isFree = true;
     } else if (filter?.excludeFree) {
       where.isFree = false;
+    }
+
+    const kinds = (filter?.kinds ?? []).filter((k): k is GameKind =>
+      (GAME_KINDS as readonly string[]).includes(k)
+    );
+    if (kinds.length > 0) {
+      where.kind = { in: kinds };
     }
 
     const sort = isGameSort(filter?.sort) ? filter.sort : DEFAULT_GAME_SORT;

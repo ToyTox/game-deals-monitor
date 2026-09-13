@@ -97,6 +97,9 @@ function renderGames(games, expanded = false) {
   renderCards($('games-grid'), games, expanded);
 }
 
+// Бейджи для всего, что не полноценная игра (ключи — GAME_KINDS из src/types.ts)
+const KIND_LABELS = { demo: 'Демо', dlc: 'DLC', kit: 'Kit' };
+
 // Отрисовка карточек в произвольную сетку
 function renderCards(grid, games, expanded = false) {
   grid.innerHTML = games.map(game => {
@@ -119,6 +122,7 @@ function renderCards(grid, games, expanded = false) {
     const badgesHtml = `
       <div class="badges">
         <span class="badge badge-platform">${esc(game.platform)}</span>
+        ${KIND_LABELS[game.kind] ? `<span class="badge badge-kind">${KIND_LABELS[game.kind]}</span>` : ''}
         ${game.isFree ? '<span class="badge badge-free">FREE</span>' : (game.discountPercent > 0 ? `<span class="badge badge-discount">-${game.discountPercent}%</span>` : '')}
       </div>
     `;
@@ -226,6 +230,8 @@ const sections = {
     sorts: ['newest', 'title', 'ending'],
     sort: 'newest',
     platforms: [],
+    // Демо, DLC и kit'ы по умолчанию скрыты
+    showExtras: false,
     page: 1,
     pageSize: 12,
     total: 0,
@@ -239,6 +245,7 @@ const sections = {
     sorts: ['discount', 'price_asc', 'price_desc', 'newest', 'title', 'ending'],
     sort: 'discount',
     platforms: [],
+    showExtras: false,
     page: 1,
     pageSize: 12,
     total: 0,
@@ -256,7 +263,7 @@ function setSectionState(key, cls, msg) {
   el.textContent = msg;
 }
 
-// ---- Фильтры разделов: платформы и сортировка ----
+// ---- Фильтры разделов: платформы, демо/DLC/kit'ы и сортировка ----
 const FILTERS_STORAGE_KEY = 'sectionFilters';
 
 // Заполняется в loadPlatforms; пока пусто — рисуем только сортировку
@@ -265,7 +272,7 @@ let platformList = [];
 function saveFilters() {
   const data = {};
   Object.entries(sections).forEach(([key, s]) => {
-    data[key] = { platforms: s.platforms, sort: s.sort };
+    data[key] = { platforms: s.platforms, sort: s.sort, showExtras: s.showExtras };
   });
   try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
 }
@@ -280,6 +287,7 @@ function restoreFilters() {
     if (!f) return;
     if (s.sorts.includes(f.sort)) s.sort = f.sort;
     if (Array.isArray(f.platforms)) s.platforms = f.platforms.filter(p => typeof p === 'string');
+    if (typeof f.showExtras === 'boolean') s.showExtras = f.showExtras;
   });
 }
 
@@ -294,6 +302,10 @@ function renderFilters(key) {
 
   $(`${key}-filters`).innerHTML = `
     ${chips}
+    <label class="filter-toggle">
+      <input type="checkbox" data-extras${s.showExtras ? ' checked' : ''}>
+      Демо, DLC и kit'ы
+    </label>
     <label class="filter-sort">
       Сортировка:
       <select data-sort>
@@ -383,6 +395,7 @@ async function loadSection(key) {
       offset: String((s.page - 1) * s.pageSize)
     });
     if (s.platforms.length > 0) query.set('platform', s.platforms.join(','));
+    if (!s.showExtras) query.set('kind', 'game');
 
     const data = await api('/api/games?' + query.toString());
     if (requestId !== s.requestId) return;
@@ -449,8 +462,14 @@ Object.keys(sections).forEach(key => {
   });
 
   filters.addEventListener('change', (e) => {
-    if (!e.target.matches('select[data-sort]')) return;
-    sections[key].sort = e.target.value;
+    const s = sections[key];
+    if (e.target.matches('select[data-sort]')) {
+      s.sort = e.target.value;
+    } else if (e.target.matches('input[data-extras]')) {
+      s.showExtras = e.target.checked;
+    } else {
+      return;
+    }
     applyFilters(key);
   });
 

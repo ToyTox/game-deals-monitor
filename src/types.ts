@@ -1,5 +1,9 @@
 export type Platform = "steam" | "epic" | "gog" | "vkplay" | "ubisoft" | "origin" | "xbox";
 
+/** Тип товара: полноценная игра или то, что разделы каталога по умолчанию скрывают. */
+export const GAME_KINDS = ["game", "demo", "dlc", "kit"] as const;
+export type GameKind = (typeof GAME_KINDS)[number];
+
 export interface ParsedGame {
   title: string;
   platform: Platform;
