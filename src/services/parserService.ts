@@ -26,16 +26,29 @@ export class ParserService {
         this.parsers.map((parser) => parser.run())
       );
 
+      const platforms = this.getAvailablePlatforms();
+      const allResults: UpdateResult[] = [];
       const successResults: UpdateResult[] = [];
       const errors: string[] = [];
 
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           successResults.push(result.value);
+          allResults.push(result.value);
         } else {
-          errors.push(
-            `${this.parsers[index].constructor.name}: ${result.reason.message}`
-          );
+          // Отказ может прийти без причины — не полагаемся на reason.message
+          const reason = result.reason;
+          const message = reason instanceof Error ? reason.message : String(reason);
+          errors.push(`${this.parsers[index].constructor.name}: ${message}`);
+          // Упавшая площадка остаётся в результате, чтобы вызывающий видел ошибку
+          allResults.push({
+            platform: platforms[index] as UpdateResult['platform'],
+            total: 0,
+            new: 0,
+            updated: 0,
+            freed: 0,
+            error: message,
+          });
         }
       });
 
@@ -74,7 +87,7 @@ export class ParserService {
 
       console.log('━'.repeat(50));
 
-      return successResults;
+      return allResults;
     } catch (error) {
       console.error('❌ Критическая ошибка при запуске парсеров:', error);
       throw error;

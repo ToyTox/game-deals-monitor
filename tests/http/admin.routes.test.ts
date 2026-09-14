@@ -98,6 +98,36 @@ describe('GET /api/admin/updates', () => {
   });
 });
 
+describe('GET /api/admin/parse-estimate', () => {
+  beforeEach(resetDb);
+
+  it('без логов оценки нет', async () => {
+    const res = await request(app).get('/api/admin/parse-estimate').expect(200);
+
+    expect(res.body).toEqual({ total: null, platforms: [] });
+  });
+
+  it('берёт последний успешный прогон площадки, а общее время — по самой долгой', async () => {
+    const logs = [
+      { ...updateLog('steam', new Date(Date.UTC(2026, 0, 1))), duration: 90_000 },
+      { ...updateLog('steam', new Date(Date.UTC(2026, 0, 2))), duration: 16_000 },
+      { ...updateLog('vkplay', new Date(Date.UTC(2026, 0, 2))), duration: 220_000 },
+      // Упавший прогон быстрее, но на оценку влиять не должен
+      { ...updateLog('vkplay', new Date(Date.UTC(2026, 0, 3))), duration: 5, status: 'error' },
+    ];
+    for (const data of logs) {
+      await prisma.updateLog.create({ data });
+    }
+
+    const res = await request(app).get('/api/admin/parse-estimate').expect(200);
+
+    expect(res.body.total).toBe(220_000);
+    expect(
+      Object.fromEntries(res.body.platforms.map((p: { platform: string; duration: number }) => [p.platform, p.duration]))
+    ).toEqual({ steam: 16_000, vkplay: 220_000 });
+  });
+});
+
 describe('GET /api/admin/platforms', () => {
   it('отдаёт список доступных площадок', async () => {
     const res = await request(app).get('/api/admin/platforms').expect(200);
@@ -143,6 +173,39 @@ describe('POST /api/admin/parse', () => {
 
     expect(res.status).toBe(200);
     expect(mockedParserService.parseAll).toHaveBeenCalledOnce();
+  });
+
+  it('без ошибок сообщает об успехе', async () => {
+    mockedParserService.parseAll.mockResolvedValue([
+      { platform: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
+    ]);
+
+    const res = await request(app).post('/api/admin/parse').send({}).expect(200);
+
+    expect(res.body.message).toBe('Все парсеры успешно завершены');
+  });
+
+  it('перечисляет упавшие площадки в сообщении', async () => {
+    mockedParserService.parseAll.mockResolvedValue([
+      { platform: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
+      { platform: 'epic', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+      { platform: 'gog', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+    ]);
+
+    const res = await request(app).post('/api/admin/parse').send({}).expect(200);
+
+    expect(res.body.message).toBe('Парсинг завершён с ошибками: epic, gog');
+    expect(res.body.results).toHaveLength(3);
+  });
+
+  it('если упали все площадки, так и говорит', async () => {
+    mockedParserService.parseAll.mockResolvedValue([
+      { platform: 'steam', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+    ]);
+
+    const res = await request(app).post('/api/admin/parse').send({}).expect(200);
+
+    expect(res.body.message).toBe('Все парсеры завершились с ошибкой');
   });
 
   // Неизвестная площадка отвечает 500, хотя по смыслу это ошибка клиента (400).

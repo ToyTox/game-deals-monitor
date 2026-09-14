@@ -156,6 +156,179 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Кнопка «Обновить всё» и отметка времени рядом */
+.refresh-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.refresh-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+#refresh-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Подпись с тикающими секундами не должна дёргать ширину кнопки */
+  font-variant-numeric: tabular-nums;
+}
+
+#refresh-all[aria-busy="true"] {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Всплывающие уведомления */
+.toasts {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(360px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background-color: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast.is-leaving {
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+/* Полоса прогресса парсинга по нижнему краю шапки */
+.refresh-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background-color: var(--accent-soft);
+  overflow: hidden;
+}
+
+.refresh-progress-bar {
+  height: 100%;
+  width: 0;
+  background-color: var(--accent);
+  transition: width 1s linear;
+}
+
+/* Оценки нет или она превышена — «бегущая» полоса вместо процента */
+.refresh-progress.is-indeterminate .refresh-progress-bar {
+  width: 30%;
+  transition: none;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.toast-info {
+  border-left-color: var(--accent);
+}
+
+.toast-success {
+  border-left-color: var(--success);
+}
+
+.toast-warning {
+  border-left-color: var(--warning);
+}
+
+.toast-error {
+  border-left-color: var(--danger);
+}
+
+.toast-title {
+  font-weight: 600;
+  margin: 0;
+}
+
+.toast-lines {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.toast-lines .is-error {
+  color: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.6;
+  }
+
+  .toast,
+  .toast.is-leaving {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+
+  .refresh-progress-bar {
+    transition: none;
+  }
+
+  .refresh-progress.is-indeterminate .refresh-progress-bar {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 /* Кнопка-иконка (переключатель темы) */
 .icon-btn {
   background-color: transparent;
@@ -633,7 +806,7 @@ input[type="checkbox"] {
 
 .card-img {
   width: 100%;
-  height: 113px;
+  height: 140px;
   object-fit: contain;
   background-color: var(--surface-alt);
 }
@@ -900,6 +1073,21 @@ summary:hover {
   #refresh-all {
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
+  }
+
+  .header-controls {
+    flex-wrap: wrap;
+  }
+
+  .refresh-status {
+    white-space: normal;
+  }
+
+  .toasts {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
   }
 
   .stats-tiles {

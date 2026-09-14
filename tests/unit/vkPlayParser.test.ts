@@ -18,6 +18,44 @@ function mockPages() {
   mockedGet.mockResolvedValueOnce({ data: page1 }).mockResolvedValueOnce({ data: page2 });
 }
 
+function vkItem(id: number, name: string) {
+  return {
+    id,
+    slug: `game-${id}`,
+    name,
+    is_sellable: true,
+    cost_info: { has_discount: true, actual_cost: 100, original_cost: 200, discount: 50 },
+  };
+}
+
+/** Каталог из pageCount страниц по perPage записей: «Игра <страница>-<позиция>». */
+function catalog(pageCount: number, perPage = 3) {
+  return Array.from({ length: pageCount }, (_, i) => ({
+    count: pageCount * perPage,
+    next: i < pageCount - 1 ? `https://api.test/?page=${i + 2}` : null,
+    results: Array.from({ length: perPage }, (_, j) => vkItem(i * perPage + j + 1, `Игра ${i + 1}-${j + 1}`)),
+  }));
+}
+
+/**
+ * Отвечать по номеру страницы, а не по порядку вызовов: воркеры и повторы
+ * перемешивают очередность запросов. failures — сколько раз подряд странице упасть.
+ */
+function serve(pages: ReturnType<typeof catalog>, failures: Record<number, number> = {}) {
+  mockedGet.mockImplementation(async (_url: string, config: { params: { page: number } }) => {
+    const page = config.params.page;
+    if ((failures[page] ?? 0) > 0) {
+      failures[page]--;
+      throw new Error(`страница ${page} недоступна`);
+    }
+    return { data: pages[page - 1] };
+  });
+}
+
+// В vitest.config VKPLAY_MAX_PAGES=2 — для каталогов длиннее снимаем лимит
+const loadUnlimited = () =>
+  withEnv({ VKPLAY_MAX_PAGES: '0' }, () => import('../../src/parsers/vkPlayParsers.js'));
+
 describe('VkPlayParser', () => {
   beforeEach(() => {
     mockedGet.mockReset();
@@ -111,13 +149,36 @@ describe('VkPlayParser', () => {
   });
 
   describe('постраничный обход', () => {
-    it('идёт на следующую страницу, пока API отдаёт next', async () => {
+    it('запрашивает страницы по 75 записей — максимум, который отдаёт API', async () => {
       mockPages();
       await new VkPlayParser().parse();
 
       expect(mockedGet).toHaveBeenCalledTimes(2);
-      expect(mockedGet.mock.calls[0][1]?.params).toEqual({ page: 1 });
-      expect(mockedGet.mock.calls[1][1]?.params).toEqual({ page: 2 });
+      expect(mockedGet.mock.calls[0][1]?.params).toEqual({ page: 1, limit: 75 });
+      expect(mockedGet.mock.calls[1][1]?.params).toEqual({ page: 2, limit: 75 });
+    });
+
+    it('считает число страниц по count и не запрашивает лишнего', async () => {
+      const { VkPlayParser: Parser } = await loadUnlimited();
+      const pages = catalog(3);
+      // Даже если последняя страница по ошибке ссылается дальше — count главнее
+      pages[2].next = 'https://api.test/?page=4';
+      serve(pages);
+
+      const games = await new Parser().parse();
+
+      expect(mockedGet).toHaveBeenCalledTimes(3);
+      expect(games).toHaveLength(9);
+    });
+
+    it('собирает игры в порядке страниц, даже если ответы пришли вразнобой', async () => {
+      const { VkPlayParser: Parser } = await loadUnlimited();
+      const pages = catalog(4);
+      serve(pages, { 2: 1 });
+
+      const titles = (await new Parser().parse()).map((g) => g.title);
+
+      expect(titles.slice(0, 6)).toEqual(['Игра 1-1', 'Игра 1-2', 'Игра 1-3', 'Игра 2-1', 'Игра 2-2', 'Игра 2-3']);
     });
 
     it('останавливается, когда next пуст', async () => {
@@ -134,17 +195,35 @@ describe('VkPlayParser', () => {
       expect(mockedGet).toHaveBeenCalledTimes(1);
     });
 
-    // В отличие от Steam, ошибка страницы здесь не фатальна:
-    // fetchPage возвращает null, обход прерывается, но уже собранное сохраняется.
-    it('при ошибке страницы возвращает частичный результат', async () => {
-      mockedGet
-        .mockResolvedValueOnce({ data: page1 })
-        .mockRejectedValueOnce(new Error('network down'));
+    // Соединение с API VK Play периодически рвётся: раньше первая же ошибка
+    // молча обрывала обход, и в базу уезжала только часть каталога.
+    it('повторяет упавшую страницу и не теряет её игры', async () => {
+      const { VkPlayParser: Parser } = await loadUnlimited();
+      serve(catalog(3), { 2: 1 });
 
-      const games = await new VkPlayParser().parse();
+      const titles = (await new Parser().parse()).map((g) => g.title);
 
-      expect(byTitle(games, 'Atomic Heart')).toBeDefined();
-      expect(byTitle(games, 'Бесплатная раздача')).toBeUndefined();
+      expect(titles).toContain('Игра 2-1');
+      expect(mockedGet).toHaveBeenCalledTimes(4);
+    });
+
+    it('страница, не ответившая за все попытки, пропускается, а обход продолжается', async () => {
+      const { VkPlayParser: Parser } = await loadUnlimited();
+      serve(catalog(3), { 2: 3 });
+
+      const titles = (await new Parser().parse()).map((g) => g.title);
+
+      expect(titles).toContain('Игра 1-1');
+      expect(titles).not.toContain('Игра 2-1');
+      expect(titles).toContain('Игра 3-1');
+      expect(mockedGet).toHaveBeenCalledTimes(5);
+    });
+
+    it('если не ответила даже первая страница — площадка падает с ошибкой', async () => {
+      serve(catalog(1), { 1: 3 });
+
+      await expect(new VkPlayParser().parse()).rejects.toThrow('первую страницу');
+      expect(mockedGet).toHaveBeenCalledTimes(3);
     });
 
     it('не ходит дальше лимита VKPLAY_MAX_PAGES', async () => {
@@ -158,18 +237,16 @@ describe('VkPlayParser', () => {
       expect(mockedGet).toHaveBeenCalledTimes(1);
     });
 
-    // БАГ (зафиксировано текущее поведение): нечисловое значение даёт NaN,
-    // условие `page <= NaN` ложно с первой итерации, и парсер молча возвращает
-    // ноль игр, отчитавшись об успехе. Починка — Number.isFinite(MAX) ? MAX : 0.
-    it('БУДУЩИЙ БАГФИКС: нечисловой VKPLAY_MAX_PAGES тихо даёт ноль игр', async () => {
+    // Раньше NaN из parseInt давал ноль игр с отчётом об успехе
+    it('нечисловой VKPLAY_MAX_PAGES означает весь каталог', async () => {
       const { VkPlayParser: Parser } = await withEnv({ VKPLAY_MAX_PAGES: 'abc' }, () =>
         import('../../src/parsers/vkPlayParsers.js')
       );
 
       mockPages();
 
-      expect(await new Parser().parse()).toEqual([]);
-      expect(mockedGet).not.toHaveBeenCalled();
+      expect(await new Parser().parse()).not.toEqual([]);
+      expect(mockedGet).toHaveBeenCalledTimes(2);
     });
   });
 });

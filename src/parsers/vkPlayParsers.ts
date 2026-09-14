@@ -6,14 +6,31 @@ import { dedupeByTitle, delay, parseMoscowDate } from './helpers.js';
 const VKPLAY_API = 'https://api.vkplay.ru/play/games/';
 const VKPLAY_STORE = 'https://vkplay.ru/play/game';
 
-// Сколько страниц каталога обойти. 0 — идти до конца (пока API отдаёт next).
-const MAX_PAGES = Number.parseInt(process.env.VKPLAY_MAX_PAGES || '0', 10);
+// API отдаёт не больше 75 записей на страницу (limit=200 и 1000 тоже дают 75).
+// Стандартные 24 превращали обход каталога в ~426 запросов.
+const PAGE_SIZE = 75;
 
-// По умолчанию сохраняем только игры со скидкой: полный каталог — это ~9000 записей.
+function intFromEnv(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+// Сколько страниц каталога обойти. 0 (и нечисловое значение) — весь каталог.
+const MAX_PAGES = intFromEnv('VKPLAY_MAX_PAGES', 0);
+
+// По умолчанию сохраняем только игры со скидкой: полный каталог — это ~10 000 записей.
 const ONLY_DISCOUNTED = process.env.VKPLAY_ONLY_DISCOUNTED !== 'false';
 
-// Пауза между страницами, мс.
-const REQUEST_DELAY = Number.parseInt(process.env.VKPLAY_REQUEST_DELAY || '300', 10);
+// Пауза между запросами одного воркера, мс.
+const REQUEST_DELAY = intFromEnv('VKPLAY_REQUEST_DELAY', 300);
+
+// Сколько страниц грузить одновременно. На 8 параллельных запросах API начинает рвать соединения.
+const CONCURRENCY = Math.max(1, intFromEnv('VKPLAY_CONCURRENCY', 3));
+
+// Соединение с API периодически обрывается даже без нагрузки — страницу повторяем.
+const MAX_ATTEMPTS = 3;
+// Базовая пауза перед повтором, мс; растёт с номером попытки.
+const RETRY_DELAY = intFromEnv('VKPLAY_RETRY_DELAY', 1000);
 
 const REQUEST_TIMEOUT = 15000;
 const USER_AGENT =
@@ -53,9 +70,10 @@ interface VkPlayListResponse {
 /**
  * Парсер каталога VK Play.
  *
- * Данные берутся из постраничного обхода каталога API (/play/games/?page=N).
- * API отдаёт до 24 записей на странице. Фильтров для скидок нет,
- * поэтому отбор по has_discount делается на нашей стороне.
+ * Данные берутся из постраничного обхода каталога API (/play/games/?page=N&limit=75).
+ * Фильтров для скидок нет, поэтому отбор по has_discount делается на нашей стороне,
+ * а каталог приходится обходить целиком. Первая страница задаёт число страниц
+ * (по count), остальные грузятся параллельно пулом из VKPLAY_CONCURRENCY воркеров.
  */
 export class VkPlayParser extends BaseParser {
   constructor() {
@@ -63,16 +81,45 @@ export class VkPlayParser extends BaseParser {
   }
 
   async parse(): Promise<ParsedGame[]> {
+    const first = await this.fetchPage(1);
+    // Без первой страницы нечего сохранять: пусть площадка честно упадёт,
+    // а не отчитается об успехе с нулём игр
+    if (!first) {
+      throw new Error('VK Play: не удалось загрузить первую страницу каталога');
+    }
+
+    const lastPage = this.countPages(first);
+    // Индекс — номер страницы минус один; разбираем строго по порядку,
+    // чтобы дедупликация не зависела от того, какой воркер ответил раньше
+    const pages: VkPlayGame[][] = [first.results || []];
+    const failed: number[] = [];
+    let nextPage = 2;
+
+    const worker = async () => {
+      while (nextPage <= lastPage) {
+        const page = nextPage++;
+        await delay(REQUEST_DELAY);
+        const response = await this.fetchPage(page);
+        if (response) {
+          pages[page - 1] = response.results || [];
+        } else {
+          failed.push(page);
+        }
+      }
+    };
+
+    const workers = Math.min(CONCURRENCY, lastPage - 1);
+    await Promise.all(Array.from({ length: workers }, worker));
+
+    if (failed.length > 0) {
+      console.warn(
+        `⚠️  VK Play: пропущены страницы ${failed.sort((a, b) => a - b).join(', ')} — не ответили за ${MAX_ATTEMPTS} попытки`
+      );
+    }
+
     const games = new Map<number, ParsedGame>();
-
-    for (let page = 1; MAX_PAGES <= 0 || page <= MAX_PAGES; page++) {
-      const response = await this.fetchPage(page);
-      if (!response) break;
-
-      const results = response.results || [];
-      if (results.length === 0) break;
-
-      for (const item of results) {
+    for (const results of pages) {
+      for (const item of results ?? []) {
         if (games.has(item.id)) continue;
 
         const game = this.toParsedGame(item);
@@ -80,9 +127,6 @@ export class VkPlayParser extends BaseParser {
           games.set(item.id, game);
         }
       }
-
-      if (!response.next) break;
-      await delay(REQUEST_DELAY);
     }
 
     const unique = dedupeByTitle([...games.values()]);
@@ -95,28 +139,51 @@ export class VkPlayParser extends BaseParser {
   }
 
   /**
-   * Получить страницу каталога. При ошибке логирует и возвращает null
-   * — частичный результат всё равно сохранится.
+   * Сколько страниц обойти: по count и фактическому размеру первой страницы
+   * (API может отдать меньше запрошенного limit), с учётом VKPLAY_MAX_PAGES.
+   */
+  private countPages(first: VkPlayListResponse): number {
+    const size = first.results?.length ?? 0;
+    if (!first.next || size === 0) return 1;
+
+    if (!first.count) {
+      console.warn('⚠️  VK Play: API не отдал count — обходим только первую страницу');
+      return 1;
+    }
+
+    const total = Math.ceil(first.count / size);
+    return MAX_PAGES > 0 ? Math.min(total, MAX_PAGES) : total;
+  }
+
+  /**
+   * Получить страницу каталога. Соединение с API периодически рвётся, поэтому
+   * страница запрашивается до MAX_ATTEMPTS раз; если все попытки неудачны — null.
    */
   private async fetchPage(page: number): Promise<VkPlayListResponse | null> {
-    try {
-      const response = await axios.get<VkPlayListResponse>(VKPLAY_API, {
-        params: { page },
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Accept': 'application/json',
-        },
-        timeout: REQUEST_TIMEOUT,
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await axios.get<VkPlayListResponse>(VKPLAY_API, {
+          params: { page, limit: PAGE_SIZE },
+          headers: {
+            'User-Agent': USER_AGENT,
+            'Accept': 'application/json',
+          },
+          timeout: REQUEST_TIMEOUT,
+        });
 
-      return response.data || null;
-    } catch (error) {
-      console.error(
-        `❌ VK Play, страница ${page}:`,
-        error instanceof Error ? error.message : error
-      );
-      return null;
+        return response.data || null;
+      } catch (error) {
+        console.error(
+          `❌ VK Play, страница ${page}, попытка ${attempt}/${MAX_ATTEMPTS}:`,
+          error instanceof Error ? error.message : error
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await delay(RETRY_DELAY * attempt);
+        }
+      }
     }
+
+    return null;
   }
 
   /**

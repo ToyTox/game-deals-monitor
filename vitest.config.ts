@@ -31,6 +31,8 @@ export default defineConfig({
       VKPLAY_MAX_PAGES: '2',
       VKPLAY_ONLY_DISCOUNTED: 'true',
       VKPLAY_REQUEST_DELAY: '0',
+      VKPLAY_CONCURRENCY: '3',
+      VKPLAY_RETRY_DELAY: '0',
       RUN_ON_STARTUP: 'false',
     },
 

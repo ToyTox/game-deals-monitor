@@ -230,6 +230,31 @@ export class GameService {
     });
   }
 
+  /**
+   * Примерная длительность парсинга по последнему успешному прогону каждой площадки.
+   * Площадки парсятся параллельно, поэтому общее ожидание — самая долгая из них.
+   */
+  async getParseEstimate(platforms: string[]) {
+    const logs = await Promise.all(
+      platforms.map((platform) =>
+        prisma.updateLog.findFirst({
+          where: { platform, status: 'success' },
+          orderBy: { createdAt: 'desc' },
+          select: { platform: true, duration: true, createdAt: true },
+        })
+      )
+    );
+
+    const known = logs
+      .filter((log): log is NonNullable<typeof log> => log !== null)
+      .map((log) => ({ platform: log.platform, duration: log.duration, measuredAt: log.createdAt }));
+
+    return {
+      total: known.length > 0 ? Math.max(...known.map((p) => p.duration)) : null,
+      platforms: known,
+    };
+  }
+
   async search(query: string) {
     const lowerQuery = query.toLowerCase();
 

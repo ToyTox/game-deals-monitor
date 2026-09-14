@@ -27,8 +27,17 @@
           <span id="health-text">Загрузка…</span>
         </div>
         <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Переключить тему"></button>
-        <button id="refresh-all">Обновить всё</button>
+        <div class="refresh-group">
+          <span id="refresh-status" class="refresh-status"></span>
+          <button id="refresh-all" type="button" title="Запустить парсинг всех площадок и перечитать данные">
+            <span class="spinner" hidden></span>
+            <span class="btn-label">Обновить всё</span>
+          </button>
+        </div>
       </div>
+    </div>
+    <div id="refresh-progress" class="refresh-progress" hidden>
+      <div class="refresh-progress-bar"></div>
     </div>
   </header>
 
@@ -251,6 +260,8 @@
       </details>
     </section>
   </main>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 
   <script src="/app.js" defer></script>
 </body>

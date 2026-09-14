@@ -114,8 +114,24 @@ describe('ParserService', () => {
 
       const results = await new ParserService().parseAll();
 
-      expect(results).toHaveLength(3);
-      expect(results.map((r) => r.platform)).toEqual(['steam', 'gog', 'vkplay']);
+      expect(results.map((r) => r.platform)).toEqual(['steam', 'epic', 'gog', 'vkplay']);
+      expect(results.filter((r) => !r.error).map((r) => r.platform)).toEqual(['steam', 'gog', 'vkplay']);
+    });
+
+    // Упавшая площадка не пропадает молча: UI показывает её в итоге обновления
+    it('упавшая площадка попадает в результат с текстом ошибки', async () => {
+      runs.epic.mockRejectedValue(new Error('epic упал'));
+
+      const results = await new ParserService().parseAll();
+
+      expect(results[1]).toEqual({
+        platform: 'epic',
+        total: 0,
+        new: 0,
+        updated: 0,
+        freed: 0,
+        error: 'epic упал',
+      });
     });
 
     it('не бросает исключение, даже если упали все', async () => {
@@ -123,19 +139,19 @@ describe('ParserService', () => {
         run.mockRejectedValue(new Error('всё плохо'));
       }
 
-      await expect(new ParserService().parseAll()).resolves.toEqual([]);
+      const results = await new ParserService().parseAll();
+
+      expect(results).toHaveLength(4);
+      expect(results.every((r) => r.error === 'всё плохо')).toBe(true);
     });
 
-    /**
-     * Зафиксировано текущее поведение: сборка списка ошибок читает
-     * result.reason.message без проверки, поэтому отказ без причины
-     * (Promise.reject() без аргумента) роняет parseAll целиком —
-     * вместе с уже успешно отработавшими площадками.
-     */
-    it('БУДУЩИЙ БАГФИКС: отказ без причины роняет parseAll целиком', async () => {
+    it('отказ без причины не роняет parseAll', async () => {
       runs.epic.mockRejectedValue(undefined);
 
-      await expect(new ParserService().parseAll()).rejects.toThrow();
+      const results = await new ParserService().parseAll();
+
+      expect(results).toHaveLength(4);
+      expect(results[1]).toMatchObject({ platform: 'epic', error: 'undefined' });
     });
   });
 });

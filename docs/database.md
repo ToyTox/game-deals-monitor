@@ -49,7 +49,7 @@
 | `gamesCount` | `Int` | Сколько игр вернул парсер |
 | `newGames` / `updatedGames` / `freedGames` | `Int` | Созданы / обновлены / стали бесплатными |
 | `startTime` / `endTime` | `DateTime` | Границы прогона |
-| `duration` | `Int` | Длительность в мс |
+| `duration` | `Int` | Длительность прогона в мс: сетевой парсинг + запись в базу. По нему `GET /api/admin/parse-estimate` оценивает время ожидания |
 | `status` | `String` | `success` или `error` |
 | `error` | `String?` | Текст ошибки при `status = error` |
 | `createdAt` | `DateTime` | Служебное |

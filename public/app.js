@@ -892,6 +892,7 @@ $('btn-parse').addEventListener('click', async () => {
 
     await loadHealth();
     await loadStats();
+    markRefreshed();
   } catch (e) {
     $('parse-status').textContent = '';
     showError(e.message);
@@ -905,9 +906,217 @@ $('btn-stats').addEventListener('click', loadStats);
 
 $('btn-health').addEventListener('click', loadHealth);
 
+function reloadAll() {
+  return Promise.all([loadHealth(), loadStats(), loadPlatforms(), loadParseEstimate()]).then(loadSections);
+}
+
+// ---- Всплывающие уведомления ----
+function showToast(kind, title, lines = []) {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${kind}`;
+  toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  toast.innerHTML = `
+    <p class="toast-title">${esc(title)}</p>
+    ${lines.length > 0
+      ? `<ul class="toast-lines">${lines.map(l => `<li class="${l.isError ? 'is-error' : ''}">${esc(l.text)}</li>`).join('')}</ul>`
+      : ''}
+  `;
+
+  let timer = null;
+  const close = () => {
+    clearTimeout(timer);
+    toast.classList.add('is-leaving');
+    setTimeout(() => toast.remove(), 200);
+  };
+  toast.addEventListener('click', close);
+  timer = setTimeout(close, kind === 'error' ? 10000 : 6000);
+
+  $('toasts').appendChild(toast);
+}
+
+// ---- «Обновлено N мин назад» ----
+let lastRefreshAt = null;
+
+function fmtAgo(date) {
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return 'только что';
+  if (mins < 60) return `${mins} мин назад`;
+  return `${Math.floor(mins / 60)} ч назад`;
+}
+
+// ---- Оценка длительности парсинга (по последним успешным прогонам) ----
+let parseEstimate = null;
+
+async function loadParseEstimate() {
+  try {
+    parseEstimate = await api('/api/admin/parse-estimate');
+  } catch (e) {
+    parseEstimate = null;
+  }
+  renderRefreshStatus();
+}
+
+function estimateTotal() {
+  return parseEstimate && parseEstimate.total ? parseEstimate.total : null;
+}
+
+// Прошедшее время: 72 000 → «1:12»
+function fmtClock(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Примерное время: 16 000 → «~16 с», 218 000 → «~4 мин»
+function fmtApprox(ms) {
+  const s = Math.max(1, Math.round(ms / 1000));
+  return s < 60 ? `~${s} с` : `~${Math.ceil(s / 60)} мин`;
+}
+
+// Фактическое время: 16 000 → «16 с», 222 000 → «3 мин 42 с»
+function fmtTook(ms) {
+  const s = Math.max(1, Math.round(ms / 1000));
+  return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин ${s % 60} с`;
+}
+
+// «vkplay ~4 мин · steam ~16 с · gog ~4 с»
+function estimateBreakdown() {
+  if (!parseEstimate) return '';
+  return [...parseEstimate.platforms]
+    .sort((a, b) => b.duration - a.duration)
+    .map(p => `${p.platform} ${fmtApprox(p.duration)}`)
+    .join(' · ');
+}
+
+function renderRefreshStatus() {
+  const el = $('refresh-status');
+  const total = estimateTotal();
+  const parts = [];
+  if (lastRefreshAt) parts.push(`Обновлено ${fmtAgo(lastRefreshAt)}`);
+  if (total) parts.push(`парсинг ${fmtApprox(total)}`);
+  el.textContent = parts.join(' · ');
+  el.title = lastRefreshAt ? `Последнее обновление: ${fmtDate(lastRefreshAt)}` : '';
+
+  $('refresh-all').title = total
+    ? `Запустить парсинг всех площадок. Обычно ${fmtApprox(total)}: ${estimateBreakdown()}`
+    : 'Запустить парсинг всех площадок и перечитать данные';
+}
+
+function markRefreshed() {
+  lastRefreshAt = new Date();
+  renderRefreshStatus();
+}
+
+setInterval(renderRefreshStatus, 30000);
+
+// ---- Кнопка «Обновить всё»: парсинг всех площадок + перечитывание данных ----
+function parseSummaryToast(data, elapsed) {
+  const results = data.results || [];
+  const ok = results.filter(r => !r.error);
+  const failed = results.filter(r => r.error);
+
+  const sum = (field) => ok.reduce((acc, r) => acc + (r[field] || 0), 0);
+  const lines = [];
+  if (ok.length > 0) {
+    lines.push({ text: `Новых: ${sum('new')} · обновлено: ${sum('updated')} · стали бесплатными: ${sum('freed')}` });
+    lines.push({ text: `Площадки: ${ok.map(r => r.platform).join(', ')}` });
+  }
+  failed.forEach(r => lines.push({ text: `${r.platform}: ${r.error}`, isError: true }));
+
+  if (results.length > 0 && failed.length === results.length) {
+    showToast('error', `Все парсеры упали (${fmtTook(elapsed)})`, lines);
+  } else if (failed.length > 0) {
+    showToast('warning', `Обновлено с ошибками за ${fmtTook(elapsed)}`, lines);
+  } else {
+    showToast('success', `Обновлено за ${fmtTook(elapsed)}`, lines);
+  }
+}
+
+let refreshing = false;
+
 $('refresh-all').addEventListener('click', async () => {
-  await Promise.all([loadHealth(), loadStats(), loadPlatforms()]);
-  await loadSections();
+  if (refreshing) return;
+  refreshing = true;
+
+  const btn = $('refresh-all');
+  const label = btn.querySelector('.btn-label');
+  const spinner = btn.querySelector('.spinner');
+  const started = Date.now();
+
+  const progress = $('refresh-progress');
+  const bar = progress.querySelector('.refresh-progress-bar');
+  const estimate = estimateTotal();
+
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  spinner.hidden = false;
+  progress.hidden = false;
+
+  if (estimate) {
+    showToast('info', `Парсинг займёт ${fmtApprox(estimate)}`, [
+      { text: `Площадки парсятся параллельно, ждём самую долгую: ${estimateBreakdown()}` },
+      { text: 'Страницей можно пользоваться, итог появится здесь' }
+    ]);
+  } else {
+    showToast('info', 'Парсинг запущен', [
+      { text: 'Точной оценки пока нет — замерим на этом прогоне. Обычно это несколько минут' }
+    ]);
+  }
+
+  const setIndeterminate = () => {
+    bar.style.width = '';
+    progress.classList.add('is-indeterminate');
+  };
+
+  const tick = () => {
+    const elapsed = Date.now() - started;
+    if (!estimate) {
+      label.textContent = `Парсинг… ${fmtClock(elapsed)}`;
+      setIndeterminate();
+    } else if (elapsed <= estimate) {
+      label.textContent = `Парсинг… ${fmtClock(elapsed)} из ${fmtApprox(estimate)}`;
+      // Не доводим до конца: 100% — только когда сервер реально ответил
+      bar.style.width = `${Math.round((elapsed / estimate) * 95)}%`;
+    } else {
+      label.textContent = `Парсинг… ${fmtClock(elapsed)}, дольше обычного`;
+      setIndeterminate();
+    }
+  };
+  tick();
+  const ticker = setInterval(tick, 1000);
+
+  try {
+    let data = null;
+    let parseError = null;
+    try {
+      data = await api('/api/admin/parse', { method: 'POST', body: {} });
+    } catch (e) {
+      parseError = e;
+    }
+
+    clearInterval(ticker);
+    label.textContent = 'Загрузка данных…';
+    progress.classList.remove('is-indeterminate');
+    bar.style.width = '100%';
+    // Перечитываем и при ошибке парсинга: часть площадок могла успеть сохраниться
+    await reloadAll();
+
+    if (parseError) {
+      showToast('error', 'Не удалось обновить', [{ text: parseError.message, isError: true }]);
+    } else {
+      markRefreshed();
+      parseSummaryToast(data, Date.now() - started);
+    }
+  } finally {
+    clearInterval(ticker);
+    refreshing = false;
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    spinner.hidden = true;
+    label.textContent = 'Обновить всё';
+    progress.hidden = true;
+    progress.classList.remove('is-indeterminate');
+    bar.style.width = '0';
+  }
 });
 
 // Тема (значение уже проставлено инлайн-скриптом в <head>)
@@ -938,6 +1147,6 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e
   restoreFilters();
   // Сортировка видна сразу, даже если список платформ не загрузится
   Object.keys(sections).forEach(key => renderFilters(key));
-  await Promise.all([loadHealth(), loadStats(), loadPlatforms()]);
-  await loadSections();
+  await reloadAll();
+  markRefreshed();
 })();

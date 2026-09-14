@@ -242,6 +242,22 @@ describe('BaseParser.saveGames', () => {
       expect(log.endTime.getTime()).toBeGreaterThanOrEqual(log.startTime.getTime());
     });
 
+    // По duration UI оценивает, сколько ждать парсинга, поэтому в него
+    // должна входить сетевая часть parse(), а не только запись в базу
+    it('run() засекает длительность до parse(), а не с начала записи', async () => {
+      class SlowParser extends TestParser {
+        async parse(): Promise<ParsedGame[]> {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          return [];
+        }
+      }
+
+      await new SlowParser().run();
+
+      const log = await prisma.updateLog.findFirstOrThrow();
+      expect(log.duration).toBeGreaterThanOrEqual(50);
+    });
+
     // На пустом списке опирается POST /api/admin/parse: он должен отвечать,
     // даже когда парсер ничего не нашёл.
     it('на пустом списке возвращает нули, но лог всё равно пишет', async () => {

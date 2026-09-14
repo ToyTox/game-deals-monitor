@@ -13,8 +13,13 @@ export abstract class BaseParser {
 
   abstract parse(): Promise<ParsedGame[]>;
 
-  async saveGames(games: ParsedGame[]): Promise<UpdateResult> {
-    const startTime = Date.now();
+  /**
+   * @param startedAt начало прогона. run() передаёт момент до parse(), чтобы
+   * duration в UpdateLog включал сетевую часть, а не только запись в базу:
+   * по нему UI оценивает, сколько ждать парсинга.
+   */
+  async saveGames(games: ParsedGame[], startedAt: number = Date.now()): Promise<UpdateResult> {
+    const startTime = startedAt;
     let newCount = 0;
     let updatedCount = 0;
     let freedCount = 0;
@@ -140,7 +145,8 @@ export abstract class BaseParser {
 
   async run(): Promise<UpdateResult> {
     console.log(`🔄 Запуск ${this.name}...`);
+    const startedAt = Date.now();
     const games = await this.parse();
-    return this.saveGames(games);
+    return this.saveGames(games, startedAt);
   }
 }

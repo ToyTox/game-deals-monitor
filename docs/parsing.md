@@ -3,7 +3,7 @@
 ## Как работает парсинг
 
 1. `ParserService` в конструкторе поднимает список парсеров: `SteamParser`, `EpicParser`, `GOGParser`, `VkPlayParser`.
-2. `parseAll()` запускает `parser.run()` для всех через `Promise.allSettled` — упавший парсер попадает в список ошибок, но остальные доезжают до конца.
+2. `parseAll()` запускает `parser.run()` для всех через `Promise.allSettled` — упавший парсер попадает в список ошибок, но остальные доезжают до конца. В возвращаемом массиве упавшая площадка остаётся записью с нулевыми счётчиками и полем `error`, чтобы вызывающий (роут и UI) видел, что именно сломалось.
 3. `BaseParser.run()` вызывает `parse()` конкретной площадки, затем `saveGames()`.
 4. `saveGames()` для каждой игры ищет существующую запись **по составному ключу `(title, platform)`**:
    - не нашлась → `create`, `newCount++` (и `freedCount++`, если игра бесплатная);
@@ -20,7 +20,7 @@
 | Steam | `GET https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian` (витрина: `specials`, `top_sellers`, `new_releases`) + `GET https://store.steampowered.com/search/results/?specials=1&infinite=1&json=1&cc=ru&l=russian` — до `STEAM_SEARCH_PAGES` страниц по 100 игр |
 | Epic Games | `POST https://www.epicgames.com/graphql` (запрос `Catalog.searchStore`, первые 100 позиций) |
 | GOG | `GET https://catalog.gog.com/v1/catalog?order=desc:discount&productType=in:game,pack` — до 5 страниц по 48 записей с сортировкой по скидке, плюс отдельный проход по бесплатным (`price=between:0,0`) |
-| VK Play | `GET https://api.vkplay.ru/play/games/?page=N` — постраничный обход каталога (24 записи на страницу, до `VKPLAY_MAX_PAGES`); фильтров у API нет, скидки отбираются на нашей стороне по `cost_info.has_discount` |
+| VK Play | `GET https://api.vkplay.ru/play/games/?page=N&limit=75` — обход всего каталога (~10 000 записей, 75 на страницу — максимум API, до `VKPLAY_MAX_PAGES`); фильтров у API нет, скидки отбираются на нашей стороне по `cost_info.has_discount`. Первая страница задаёт число страниц по `count`, остальные грузятся параллельно (`VKPLAY_CONCURRENCY`, по умолчанию 3). Упавшая страница повторяется до 3 раз; если не ответила — пропускается с предупреждением в консоли, а если не ответила первая — площадка падает с ошибкой |
 
 ## Тип товара
 

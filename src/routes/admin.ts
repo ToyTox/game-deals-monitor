@@ -56,10 +56,14 @@ router.post('/parse', async (req: Request, res: Response) => {
       });
     } else {
       const results = await parserService.parseAll();
-      res.json({
-        message: 'Все парсеры успешно завершены',
-        results,
-      });
+      const failed = results.filter((r) => r.error).map((r) => r.platform);
+      let message = 'Все парсеры успешно завершены';
+      if (failed.length > 0 && failed.length === results.length) {
+        message = 'Все парсеры завершились с ошибкой';
+      } else if (failed.length > 0) {
+        message = `Парсинг завершён с ошибками: ${failed.join(', ')}`;
+      }
+      res.json({ message, results });
     }
   } catch (error) {
     res.status(500).json({
@@ -83,6 +87,22 @@ router.get('/platforms', (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({
       error: 'Ошибка при получении платформ',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/admin/parse-estimate
+ * Примерная длительность парсинга по последним успешным прогонам
+ */
+router.get('/parse-estimate', async (req: Request, res: Response) => {
+  try {
+    const estimate = await gameService.getParseEstimate(parserService.getAvailablePlatforms());
+    res.json(estimate);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Ошибка при оценке длительности парсинга',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
