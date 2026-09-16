@@ -144,7 +144,7 @@ export class GOGParser extends BaseParser {
 
     return {
       title: item.title,
-      platform: 'gog',
+      storeId: 'gog',
       currency: price?.finalMoney?.currency || CURRENCY,
       originalPrice,
       currentPrice,

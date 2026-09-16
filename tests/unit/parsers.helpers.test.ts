@@ -10,7 +10,7 @@ import { ParsedGame } from '../../src/types.js';
 function game(title: string, discountPercent: number): ParsedGame {
   return {
     title,
-    platform: 'steam',
+    storeId: 'steam',
     discountPercent,
     isFree: false,
     gameUrl: `https://example.test/${title}`,

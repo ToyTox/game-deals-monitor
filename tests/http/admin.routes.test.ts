@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import parserService from '../../src/services/parserService.js';
-import { prisma, resetDb } from '../helpers/db.js';
+import { prisma, resetDb, seedOffer } from '../helpers/db.js';
 
 // Мокаем только parserService: он ходит в сеть. Статистика и логи читаются
 // из настоящей базы. Форма с default обязательна — роутер импортирует экземпляр.
@@ -62,21 +62,12 @@ describe('GET /api/admin/stats', () => {
   });
 
   it('отдаёт разбивку по площадкам', async () => {
-    await prisma.game.create({
-      data: {
-        title: 'Half-Life',
-        platform: 'steam',
-        gameUrl: 'https://example.test/hl',
-        currentPrice: 500,
-        originalPrice: 1000,
-        discountPercent: 50,
-      },
-    });
+    await seedOffer({ title: 'Half-Life', platform: 'steam', discountPercent: 50 });
 
     const res = await request(app).get('/api/admin/stats').expect(200);
 
     expect(res.body.totalGames).toBe(1);
-    expect(res.body.byPlatform.steam).toEqual({ total: 1, free: 0, discounted: 1 });
+    expect(res.body.byStore.steam).toEqual({ total: 1, free: 0, discounted: 1 });
   });
 });
 
@@ -144,7 +135,7 @@ describe('POST /api/admin/parse', () => {
     mockedParserService.parseAll.mockReset().mockResolvedValue([]);
     mockedParserService.parsePlatform
       .mockReset()
-      .mockResolvedValue({ platform: 'steam', total: 0, new: 0, updated: 0, freed: 0 });
+      .mockResolvedValue({ storeId: 'steam', total: 0, new: 0, updated: 0, freed: 0 });
   });
 
   it('с указанной площадкой запускает только её парсер', async () => {
@@ -177,7 +168,7 @@ describe('POST /api/admin/parse', () => {
 
   it('без ошибок сообщает об успехе', async () => {
     mockedParserService.parseAll.mockResolvedValue([
-      { platform: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
+      { storeId: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
     ]);
 
     const res = await request(app).post('/api/admin/parse').send({}).expect(200);
@@ -187,9 +178,9 @@ describe('POST /api/admin/parse', () => {
 
   it('перечисляет упавшие площадки в сообщении', async () => {
     mockedParserService.parseAll.mockResolvedValue([
-      { platform: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
-      { platform: 'epic', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
-      { platform: 'gog', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+      { storeId: 'steam', total: 1, new: 1, updated: 0, freed: 0 },
+      { storeId: 'epic', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+      { storeId: 'gog', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
     ]);
 
     const res = await request(app).post('/api/admin/parse').send({}).expect(200);
@@ -200,7 +191,7 @@ describe('POST /api/admin/parse', () => {
 
   it('если упали все площадки, так и говорит', async () => {
     mockedParserService.parseAll.mockResolvedValue([
-      { platform: 'steam', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
+      { storeId: 'steam', total: 0, new: 0, updated: 0, freed: 0, error: 'timeout' },
     ]);
 
     const res = await request(app).post('/api/admin/parse').send({}).expect(200);

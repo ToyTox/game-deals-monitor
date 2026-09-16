@@ -32,7 +32,7 @@ export class CurrencyService {
     currency: string | null | undefined
   ): Promise<number | null> {
     // Если сумма не конечное число, возвращаем null
-    if (!Number.isFinite(amount)) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) {
       return null;
     }
 

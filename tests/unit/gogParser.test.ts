@@ -92,7 +92,7 @@ describe('GOGParser', () => {
 
       expect((await new GOGParser().parse())[0]).toMatchObject({
         title: 'Cyberpunk 2077',
-        platform: 'gog',
+        storeId: 'gog',
         originalPrice: 2999,
         currentPrice: 1499,
         discountPercent: 50,
@@ -273,7 +273,7 @@ describe('GOGParser', () => {
       expect(games).toHaveLength(2);
       expect(games[0]).toMatchObject({
         title: 'Dead Age 1 + 2 Bundle',
-        platform: 'gog',
+        storeId: 'gog',
         currency: 'RUB',
         originalPrice: 679,
         currentPrice: 33,

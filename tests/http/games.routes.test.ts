@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
-import { prisma, resetDb } from '../helpers/db.js';
+import { prisma, resetDb, seedOffer, type OfferSeed } from '../helpers/db.js';
 
 // Роуты игр ходят в реальную базу; мокаем только parserService — он лезет в сеть.
 // Форма мока с default обязательна: роутеры импортируют готовый экземпляр.
@@ -15,20 +15,8 @@ vi.mock('../../src/services/parserService.js', () => ({
 
 const app = createApp();
 
-async function seedGame(title: string, overrides: Record<string, unknown> = {}) {
-  return prisma.game.create({
-    data: {
-      title,
-      platform: 'steam',
-      gameUrl: `https://example.test/${encodeURIComponent(title)}`,
-      originalPrice: 1000,
-      currentPrice: 500,
-      currency: 'RUB',
-      discountPercent: 50,
-      isFree: false,
-      ...overrides,
-    },
-  });
+async function seedGame(title: string, overrides: Omit<OfferSeed, 'title'> = {}) {
+  return seedOffer({ title, ...overrides });
 }
 
 describe('GET /api/games', () => {
@@ -216,7 +204,7 @@ describe('GET /api/games/:title', () => {
   it('отдаёт игру с историей цен', async () => {
     const game = await seedGame('Half-Life');
     await prisma.priceHistory.create({
-      data: { gameId: game.id, oldPrice: 1000, newPrice: 500 },
+      data: { offerId: game.id, oldPrice: 1000, newPrice: 500 },
     });
 
     const res = await request(app).get('/api/games/Half-Life').expect(200);
@@ -248,7 +236,7 @@ describe('GET /api/games/:title/price-history', () => {
   it('отдаёт историю вместе с валютой', async () => {
     const game = await seedGame('Half-Life', { currency: 'RUB' });
     await prisma.priceHistory.create({
-      data: { gameId: game.id, oldPrice: 1000, newPrice: 500 },
+      data: { offerId: game.id, oldPrice: 1000, newPrice: 500 },
     });
 
     const res = await request(app).get('/api/games/Half-Life/price-history').expect(200);

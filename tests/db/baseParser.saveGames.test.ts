@@ -1,15 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { BaseParser } from '../../src/parsers/BaseParsers.js';
-import { ParsedGame, Platform } from '../../src/types.js';
+import { ParsedGame, StoreId } from '../../src/types.js';
 import { prisma, resetDb } from '../helpers/db.js';
+
+/** Единственный оффер вместе с канонической игрой. */
+function savedOffer() {
+  return prisma.offer.findFirstOrThrow({ include: { game: true } });
+}
 
 /**
  * parse() абстрактен, а saveGames() принимает игры параметром — значит,
  * записывающую логику можно тестировать без сети через тестовый подкласс.
  */
 class TestParser extends BaseParser {
-  constructor(platform: Platform = 'steam') {
-    super(platform, 'Test');
+  constructor(storeId: StoreId = 'steam') {
+    super(storeId, 'Test');
   }
 
   async parse(): Promise<ParsedGame[]> {
@@ -20,7 +25,7 @@ class TestParser extends BaseParser {
 function game(overrides: Partial<ParsedGame> = {}): ParsedGame {
   return {
     title: 'Half-Life',
-    platform: 'steam',
+    storeId: 'steam',
     originalPrice: 1000,
     currentPrice: 500,
     discountPercent: 50,
@@ -34,7 +39,7 @@ describe('BaseParser.saveGames', () => {
   beforeEach(resetDb);
 
   describe('создание', () => {
-    it('создаёт новую игру и переносит все поля', async () => {
+    it('создаёт игру с оффером и переносит все поля', async () => {
       const saleEnd = new Date('2030-01-01T00:00:00.000Z');
 
       const result = await new TestParser().saveGames([
@@ -46,30 +51,43 @@ describe('BaseParser.saveGames', () => {
         }),
       ]);
 
-      expect(result).toEqual({ platform: 'steam', total: 1, new: 1, updated: 0, freed: 0 });
+      expect(result).toEqual({ storeId: 'steam', total: 1, new: 1, updated: 0, freed: 0 });
 
-      const saved = await prisma.game.findFirstOrThrow();
-      expect(saved).toMatchObject({
+      const saved = await savedOffer();
+      expect(saved.game).toMatchObject({
         title: 'Half-Life',
-        platform: 'steam',
+        slug: 'half-life',
+        normalizedTitle: 'half life',
+        kind: 'game',
+        imageUrl: 'https://example.test/cover.jpg',
+        description: 'Описание',
+      });
+      expect(saved).toMatchObject({
+        storeId: 'steam',
         originalPrice: 1000,
         currentPrice: 500,
         currency: 'RUB',
         discountPercent: 50,
         isFree: false,
         gameUrl: 'https://store.steampowered.com/app/70',
-        imageUrl: 'https://example.test/cover.jpg',
-        description: 'Описание',
+        // Рубли конвертируются без сети
+        originalPriceRub: 1000,
+        currentPriceRub: 500,
       });
       expect(saved.saleEndDate?.toISOString()).toBe(saleEnd.toISOString());
     });
 
-    it('платформу берёт из парсера, а не из ParsedGame', async () => {
-      // В ParsedGame платформа есть, но saveGames подставляет this.platform.
-      await new TestParser('gog').saveGames([game({ platform: 'steam' })]);
+    it('магазин берёт из парсера, а не из ParsedGame', async () => {
+      // В ParsedGame магазин есть, но saveGames подставляет this.storeId.
+      await new TestParser('gog').saveGames([game({ storeId: 'steam' })]);
 
-      const saved = await prisma.game.findFirstOrThrow();
-      expect(saved.platform).toBe('gog');
+      expect((await savedOffer()).storeId).toBe('gog');
+    });
+
+    it('без валюты рублёвые цены остаются пустыми', async () => {
+      await new TestParser().saveGames([game({ currency: undefined })]);
+
+      expect(await savedOffer()).toMatchObject({ currentPriceRub: null, originalPriceRub: null });
     });
 
     it('бесплатная игра при создании считается и новой, и освобождённой', async () => {
@@ -87,8 +105,8 @@ describe('BaseParser.saveGames', () => {
     });
   });
 
-  describe('обновление по составному ключу', () => {
-    it('вторая запись с той же парой (title, platform) обновляет строку', async () => {
+  describe('каноническая игра и оффер', () => {
+    it('повторный прогон магазина обновляет тот же оффер', async () => {
       const parser = new TestParser();
 
       await parser.saveGames([game()]);
@@ -96,21 +114,53 @@ describe('BaseParser.saveGames', () => {
 
       expect(result).toMatchObject({ total: 1, new: 0, updated: 1 });
       expect(await prisma.game.count()).toBe(1);
+      expect(await prisma.offer.count()).toBe(1);
 
-      const saved = await prisma.game.findFirstOrThrow();
+      const saved = await savedOffer();
       expect(saved.currentPrice).toBe(400);
       expect(saved.discountPercent).toBe(60);
     });
 
-    // Регрессия на миграцию, снявшую глобальный Game_title_key:
-    // одно и то же название на разных площадках обязано сосуществовать.
-    it('то же название на другой платформе создаёт отдельную строку', async () => {
+    it('то же название в другом магазине — та же игра, но отдельный оффер', async () => {
       await new TestParser('steam').saveGames([game()]);
-      await new TestParser('gog').saveGames([game()]);
+      const result = await new TestParser('gog').saveGames([game()]);
 
-      const saved = await prisma.game.findMany({ orderBy: { platform: 'asc' } });
-      expect(saved).toHaveLength(2);
-      expect(saved.map((g) => g.platform)).toEqual(['gog', 'steam']);
+      expect(result).toMatchObject({ new: 1, updated: 0 });
+      expect(await prisma.game.count()).toBe(1);
+      const offers = await prisma.offer.findMany({ orderBy: { storeId: 'asc' } });
+      expect(offers.map((o) => o.storeId)).toEqual(['gog', 'steam']);
+    });
+
+    it('варианты написания сводятся к одной игре, название задаёт первый магазин', async () => {
+      await new TestParser('steam').saveGames([game({ title: 'Half-Life™' })]);
+      await new TestParser('gog').saveGames([game({ title: 'HALF-LIFE' })]);
+
+      const games = await prisma.game.findMany();
+      expect(games.map((g) => g.title)).toEqual(['Half-Life™']);
+      expect(await prisma.offer.count()).toBe(2);
+    });
+
+    it('при совпадении слагов у разных игр добавляет суффикс', async () => {
+      // Разные названия, но мягкий знак при транслитерации пропадает: оба дают «stal».
+      await new TestParser().saveGames([game({ title: 'Сталь' }), game({ title: 'Стал' })]);
+
+      const games = await prisma.game.findMany({ orderBy: { id: 'asc' } });
+      expect(games.map((g) => g.slug)).toEqual(['stal', 'stal-2']);
+    });
+
+    it('пустые картинку и описание игры заполняет следующий магазин', async () => {
+      await new TestParser('steam').saveGames([game()]);
+      await new TestParser('gog').saveGames([
+        game({ imageUrl: 'https://example.test/gog.jpg', description: 'Из GOG' }),
+      ]);
+      await new TestParser('epic').saveGames([
+        game({ imageUrl: 'https://example.test/epic.jpg', description: 'Из Epic' }),
+      ]);
+
+      expect(await prisma.game.findFirstOrThrow()).toMatchObject({
+        imageUrl: 'https://example.test/gog.jpg',
+        description: 'Из GOG',
+      });
     });
   });
 
@@ -131,7 +181,11 @@ describe('BaseParser.saveGames', () => {
     // Так размечаются записи, созданные до появления колонки или до правки правил.
     it('при обновлении пересчитывается у уже сохранённой записи', async () => {
       await prisma.game.create({
-        data: { title: 'House Flipper - Pets DLC', platform: 'steam', gameUrl: 'https://example.test' },
+        data: {
+          title: 'House Flipper - Pets DLC',
+          slug: 'house-flipper-pets-dlc',
+          normalizedTitle: 'house flipper pets dlc',
+        },
       });
 
       await new TestParser().saveGames([game({ title: 'House Flipper - Pets DLC' })]);
@@ -187,7 +241,7 @@ describe('BaseParser.saveGames', () => {
       await new TestParser().saveGames([game({ originalPrice: 2000 })]);
 
       expect(await prisma.priceHistory.count()).toBe(0);
-      expect((await prisma.game.findFirstOrThrow()).originalPrice).toBe(2000);
+      expect((await savedOffer()).originalPrice).toBe(2000);
     });
 
     it('переход цены из null в 0 считается изменением', async () => {
@@ -263,7 +317,7 @@ describe('BaseParser.saveGames', () => {
     it('на пустом списке возвращает нули, но лог всё равно пишет', async () => {
       const result = await new TestParser().saveGames([]);
 
-      expect(result).toEqual({ platform: 'steam', total: 0, new: 0, updated: 0, freed: 0 });
+      expect(result).toEqual({ storeId: 'steam', total: 0, new: 0, updated: 0, freed: 0 });
       expect(await prisma.updateLog.findFirstOrThrow()).toMatchObject({
         status: 'success',
         gamesCount: 0,
@@ -325,7 +379,7 @@ describe('BaseParser.saveGames', () => {
     it('NaN в originalPrice молча превращается в null', async () => {
       await new TestParser().saveGames([game({ originalPrice: NaN })]);
 
-      expect((await prisma.game.findFirstOrThrow()).originalPrice).toBeNull();
+      expect((await savedOffer()).originalPrice).toBeNull();
     });
 
     it('Infinity в originalPrice сохраняется как есть', async () => {
@@ -333,7 +387,7 @@ describe('BaseParser.saveGames', () => {
 
       // В JSON-ответе API это станет null (JSON.stringify не умеет Infinity),
       // то есть наружу баг протекает так же тихо, как и в случае с NaN.
-      expect((await prisma.game.findFirstOrThrow()).originalPrice).toBe(Infinity);
+      expect((await savedOffer()).originalPrice).toBe(Infinity);
     });
   });
 });

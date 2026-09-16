@@ -69,7 +69,7 @@ describe('VkPlayParser', () => {
       mockPages();
 
       expect(byTitle(await new VkPlayParser().parse(), 'Atomic Heart')).toMatchObject({
-        platform: 'vkplay',
+        storeId: 'vkplay',
         originalPrice: 2999,
         currentPrice: 1999,
         discountPercent: 33,

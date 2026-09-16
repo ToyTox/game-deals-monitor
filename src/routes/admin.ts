@@ -56,7 +56,7 @@ router.post('/parse', async (req: Request, res: Response) => {
       });
     } else {
       const results = await parserService.parseAll();
-      const failed = results.filter((r) => r.error).map((r) => r.platform);
+      const failed = results.filter((r) => r.error).map((r) => r.storeId);
       let message = 'Все парсеры успешно завершены';
       if (failed.length > 0 && failed.length === results.length) {
         message = 'Все парсеры завершились с ошибкой';

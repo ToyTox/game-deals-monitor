@@ -102,7 +102,7 @@ export class EpicParser extends BaseParser {
 
           games.push({
             title: item.title,
-            platform: 'epic',
+            storeId: 'epic',
             currency: 'USD',
             originalPrice: originalPrice > 0 ? originalPrice / 100 : 0,
             currentPrice: currentPrice > 0 ? currentPrice / 100 : 0,
