@@ -240,7 +240,7 @@ export class SteamParser extends BaseParser {
 
       games.set(appId, {
         title,
-        platform: 'steam',
+        storeId: 'steam',
         originalPrice,
         currentPrice,
         discountPercent,
@@ -268,7 +268,7 @@ export class SteamParser extends BaseParser {
 
     return {
       title: item.name.trim(),
-      platform: 'steam',
+      storeId: 'steam',
       originalPrice,
       currentPrice,
       discountPercent: item.discount_percent || 0,

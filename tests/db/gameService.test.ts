@@ -1,39 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import gameService from '../../src/services/gameService.js';
-import { prisma, resetDb } from '../helpers/db.js';
+import { prisma, resetDb, seedOffer, type OfferSeed } from '../helpers/db.js';
 
-type GameSeed = {
-  title: string;
-  platform?: string;
-  /** null — игра без цены (так бывает у предзаказов и снятых с продажи) */
-  currentPrice?: number | null;
-  originalPrice?: number;
-  currency?: string;
-  discountPercent?: number;
-  isFree?: boolean;
-  kind?: string;
-  /** Задавать явно там, где проверяется порядок: иначе две записи, созданные
-   *  в одну миллисекунду, получают одинаковый createdAt и сортировка плавает. */
-  createdAt?: Date;
-  saleEndDate?: Date;
-};
-
-async function seedGame(seed: GameSeed) {
-  return prisma.game.create({
-    data: {
-      title: seed.title,
-      platform: seed.platform ?? 'steam',
-      gameUrl: `https://example.test/${encodeURIComponent(seed.title)}`,
-      originalPrice: seed.originalPrice ?? 1000,
-      currentPrice: seed.currentPrice === undefined ? 500 : seed.currentPrice,
-      currency: seed.currency ?? 'RUB',
-      discountPercent: seed.discountPercent ?? 50,
-      isFree: seed.isFree ?? false,
-      kind: seed.kind ?? 'game',
-      ...(seed.createdAt ? { createdAt: seed.createdAt } : {}),
-      ...(seed.saleEndDate ? { saleEndDate: seed.saleEndDate } : {}),
-    },
-  });
+async function seedGame(seed: OfferSeed) {
+  return seedOffer(seed);
 }
 
 describe('GameService', () => {
@@ -193,7 +163,7 @@ describe('GameService', () => {
       const game = await seedGame({ title: 'С историей' });
       for (let i = 0; i < 7; i++) {
         await prisma.priceHistory.create({
-          data: { gameId: game.id, oldPrice: 100 + i, newPrice: 90 + i },
+          data: { offerId: game.id, oldPrice: 100 + i, newPrice: 90 + i },
         });
       }
 
@@ -286,7 +256,7 @@ describe('GameService', () => {
     it('отдаёт игру вместе со всей историей цен', async () => {
       const game = await seedGame({ title: 'Half-Life' });
       await prisma.priceHistory.create({
-        data: { gameId: game.id, oldPrice: 1000, newPrice: 500 },
+        data: { offerId: game.id, oldPrice: 1000, newPrice: 500 },
       });
 
       const found = await gameService.getByTitle('Half-Life');
@@ -300,9 +270,8 @@ describe('GameService', () => {
     });
 
     /**
-     * Прямое следствие смены уникального ключа на пару (title, platform):
-     * одно название может существовать на нескольких площадках, а findFirst
-     * возвращает только одну запись — какую именно, метод не оговаривает.
+     * Одна каноническая игра может продаваться в нескольких магазинах, а findFirst
+     * возвращает только один оффер — какой именно, метод не оговаривает.
      */
     it('при одном названии на двух площадках отдаёт одну из записей', async () => {
       await seedGame({ title: 'Cyberpunk 2077', platform: 'steam' });
@@ -324,7 +293,7 @@ describe('GameService', () => {
         freeGames: 0,
         discountedGames: 0,
         averageDiscount: 0,
-        byPlatform: {},
+        byStore: {},
         topDiscounts: [],
         lastUpdate: null,
       });
@@ -344,9 +313,9 @@ describe('GameService', () => {
       await seedGame({ title: 'S2', platform: 'steam', discountPercent: 0, isFree: true });
       await seedGame({ title: 'G1', platform: 'gog', discountPercent: 30 });
 
-      const { byPlatform } = await gameService.getStats();
+      const { byStore } = await gameService.getStats();
 
-      expect(byPlatform).toEqual({
+      expect(byStore).toEqual({
         steam: { total: 2, free: 1, discounted: 1 },
         gog: { total: 1, free: 0, discounted: 1 },
       });
@@ -372,7 +341,8 @@ describe('GameService', () => {
 
       expect(stats.topDiscounts[0]).toEqual({
         title: 'Крупная',
-        platform: 'steam',
+        slug: 'krupnaya',
+        storeId: 'steam',
         discount: 90,
       });
       expect(stats.lastUpdate).toBeInstanceOf(Date);
@@ -383,7 +353,7 @@ describe('GameService', () => {
     it('отдаёт историю и валюту игры', async () => {
       const game = await seedGame({ title: 'Half-Life', currency: 'RUB' });
       await prisma.priceHistory.create({
-        data: { gameId: game.id, oldPrice: 1000, newPrice: 500, oldDiscount: 0, newDiscount: 50 },
+        data: { offerId: game.id, oldPrice: 1000, newPrice: 500, oldDiscount: 0, newDiscount: 50 },
       });
 
       const { currency, history } = await gameService.getPriceHistory('Half-Life');

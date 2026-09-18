@@ -69,7 +69,7 @@ describe('EpicParser', () => {
     expect(games).toHaveLength(2);
     expect(games[0]).toMatchObject({
       title: 'Alan Wake 2',
-      platform: 'epic',
+      storeId: 'epic',
       currency: 'USD',
       // Epic, как и Steam, отдаёт цены в центах.
       originalPrice: 59.99,

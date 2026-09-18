@@ -42,7 +42,7 @@ export class ParserService {
           errors.push(`${this.parsers[index].constructor.name}: ${message}`);
           // Упавшая площадка остаётся в результате, чтобы вызывающий видел ошибку
           allResults.push({
-            platform: platforms[index] as UpdateResult['platform'],
+            storeId: platforms[index],
             total: 0,
             new: 0,
             updated: 0,
@@ -64,7 +64,7 @@ export class ParserService {
       let totalFreed = 0;
 
       for (const result of successResults) {
-        console.log(`  ${result.platform.toUpperCase()}: ${result.total} игр`);
+        console.log(`  ${result.storeId.toUpperCase()}: ${result.total} игр`);
         console.log(`    ├─ Новых: ${result.new}`);
         console.log(`    ├─ Обновлено: ${result.updated}`);
         console.log(`    └─ В бесплатные: ${result.freed}`);

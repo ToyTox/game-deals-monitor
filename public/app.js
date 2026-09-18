@@ -547,8 +547,8 @@ async function loadStats() {
 
     // By platform
     const platforms = $('stats-platforms');
-    if (data.byPlatform && Object.keys(data.byPlatform).length > 0) {
-      platforms.innerHTML = '<h3>По платформам</h3>' + Object.entries(data.byPlatform).map(([name, stats]) => `
+    if (data.byStore && Object.keys(data.byStore).length > 0) {
+      platforms.innerHTML = '<h3>По платформам</h3>' + Object.entries(data.byStore).map(([name, stats]) => `
         <div class="platform-stat">
           <div class="platform-name">${esc(name)}</div>
           <div class="platform-stats">
@@ -564,7 +564,7 @@ async function loadStats() {
     const top = $('stats-top');
     if (data.topDiscounts && data.topDiscounts.length > 0) {
       top.innerHTML = '<h3>Топ скидок</h3><ul class="top-discounts">' + data.topDiscounts.map(item => `
-        <li><strong>${esc(item.title)}</strong> (${esc(item.platform)}) -${item.discount}%</li>
+        <li><strong>${esc(item.title)}</strong> (${esc(item.storeId)}) -${item.discount}%</li>
       `).join('') + '</ul>';
     } else {
       top.innerHTML = '';

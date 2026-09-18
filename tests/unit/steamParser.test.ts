@@ -31,7 +31,7 @@ describe('SteamParser: витрина', () => {
     const halfLife = byTitle(games, 'Half-Life');
 
     expect(halfLife).toMatchObject({
-      platform: 'steam',
+      storeId: 'steam',
       originalPrice: 1999,
       currentPrice: 999.5,
       discountPercent: 50,

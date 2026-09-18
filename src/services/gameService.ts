@@ -6,15 +6,17 @@ import { GAME_KINDS, GameKind, StatsResponse } from '../types.js';
  * Допустимые сортировки списка игр. Последним ключом везде идёт id: без него
  * записи с одинаковым значением (скидка 50%, одна дата) меняются местами между
  * запросами, и при листании страниц карточки дублируются или пропадают.
+ *
+ * Цены у магазинов в разных валютах, поэтому по цене сортируем рублёвый эквивалент.
  */
 export const GAME_SORTS = {
   discount: [{ discountPercent: 'desc' }, { id: 'asc' }],
-  price_asc: [{ currentPrice: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
-  price_desc: [{ currentPrice: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+  price_asc: [{ currentPriceRub: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  price_desc: [{ currentPriceRub: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
   newest: [{ createdAt: 'desc' }, { id: 'desc' }],
-  title: [{ title: 'asc' }, { id: 'asc' }],
+  title: [{ game: { title: 'asc' } }, { id: 'asc' }],
   ending: [{ saleEndDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
-} satisfies Record<string, Prisma.GameOrderByWithRelationInput[]>;
+} satisfies Record<string, Prisma.OfferOrderByWithRelationInput[]>;
 
 export type GameSort = keyof typeof GAME_SORTS;
 
@@ -22,6 +24,26 @@ export const DEFAULT_GAME_SORT: GameSort = 'discount';
 
 function isGameSort(value: unknown): value is GameSort {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GAME_SORTS, value);
+}
+
+type OfferWithGame = Prisma.OfferGetPayload<{ include: { game: true } }> & {
+  priceHistory?: Prisma.PriceHistoryGetPayload<object>[];
+};
+
+/**
+ * Элемент списка в API — оффер магазина с полями канонической игры, в том же
+ * плоском виде, что и до разделения на Game и Offer. platform — id магазина.
+ */
+function toListItem({ game, storeId, ...offer }: OfferWithGame) {
+  return {
+    ...offer,
+    platform: storeId,
+    slug: game.slug,
+    title: game.title,
+    kind: game.kind,
+    imageUrl: game.imageUrl,
+    description: game.description,
+  };
 }
 
 export class GameService {
@@ -37,16 +59,16 @@ export class GameService {
     limit?: number;
     offset?: number;
   }) {
-    const where: any = {};
+    const where: Prisma.OfferWhereInput = {};
 
     if (Array.isArray(filter?.platform)) {
       if (filter.platform.length === 1) {
-        where.platform = filter.platform[0];
+        where.storeId = filter.platform[0];
       } else if (filter.platform.length > 1) {
-        where.platform = { in: filter.platform };
+        where.storeId = { in: filter.platform };
       }
     } else if (filter?.platform) {
-      where.platform = filter.platform;
+      where.storeId = filter.platform;
     }
 
     if (filter?.minDiscount && filter.minDiscount > 0) {
@@ -63,17 +85,18 @@ export class GameService {
       (GAME_KINDS as readonly string[]).includes(k)
     );
     if (kinds.length > 0) {
-      where.kind = { in: kinds };
+      where.game = { kind: { in: kinds } };
     }
 
     const sort = isGameSort(filter?.sort) ? filter.sort : DEFAULT_GAME_SORT;
 
-    const games = await prisma.game.findMany({
+    const offers = await prisma.offer.findMany({
       where,
       orderBy: GAME_SORTS[sort],
       take: filter?.limit || 100,
       skip: filter?.offset || 0,
       include: {
+        game: true,
         priceHistory: {
           take: 5,
           orderBy: { createdAt: 'desc' },
@@ -81,10 +104,10 @@ export class GameService {
       },
     });
 
-    const total = await prisma.game.count({ where });
+    const total = await prisma.offer.count({ where });
 
     return {
-      games,
+      games: offers.map(toListItem),
       total,
       limit: filter?.limit || 100,
       offset: filter?.offset || 0,
@@ -92,93 +115,102 @@ export class GameService {
   }
 
   async getFreeGames(limit: number = 50) {
-    return prisma.game.findMany({
+    const offers = await prisma.offer.findMany({
       where: { isFree: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
+      include: { game: true },
     });
+    return offers.map(toListItem);
   }
 
   async getTopDiscounts(limit: number = 20) {
-    return prisma.game.findMany({
+    const offers = await prisma.offer.findMany({
       where: { discountPercent: { gt: 0 } },
       orderBy: { discountPercent: 'desc' },
       take: limit,
+      include: { game: true },
     });
+    return offers.map(toListItem);
   }
 
   async getByPlatform(platform: string, limit: number = 50) {
-    return prisma.game.findMany({
-      where: { platform },
+    const offers = await prisma.offer.findMany({
+      where: { storeId: platform },
       orderBy: { discountPercent: 'desc' },
       take: limit,
+      include: { game: true },
     });
+    return offers.map(toListItem);
   }
 
   async getByTitle(title: string) {
-    // Название больше не уникально глобально (ключ — пара title+platform),
-    // поэтому берём первую подходящую запись независимо от площадки.
-    return prisma.game.findFirst({
-      where: { title },
+    // Одна игра может продаваться в нескольких магазинах, поэтому берём
+    // первый подходящий оффер независимо от магазина.
+    const offer = await prisma.offer.findFirst({
+      where: { game: { title } },
       include: {
+        game: true,
         priceHistory: {
           orderBy: { createdAt: 'desc' },
         },
       },
     });
+
+    return offer ? toListItem(offer) : null;
   }
 
   async getStats(): Promise<StatsResponse> {
-    const totalGames = await prisma.game.count();
-    const freeGames = await prisma.game.count({ where: { isFree: true } });
-    const discountedGames = await prisma.game.count({
+    const totalGames = await prisma.offer.count();
+    const freeGames = await prisma.offer.count({ where: { isFree: true } });
+    const discountedGames = await prisma.offer.count({
       where: { discountPercent: { gt: 0 } },
     });
 
-    const games = await prisma.game.findMany({
+    const discounted = await prisma.offer.findMany({
       select: { discountPercent: true },
       where: { discountPercent: { gt: 0 } },
     });
 
     const averageDiscount =
-      games.length > 0
-        ? games.reduce((acc, g) => acc + g.discountPercent, 0) / games.length
+      discounted.length > 0
+        ? discounted.reduce((acc, o) => acc + o.discountPercent, 0) / discounted.length
         : 0;
 
-    const platforms = await prisma.game.groupBy({
-      by: ['platform'],
+    const stores = await prisma.offer.groupBy({
+      by: ['storeId'],
       _count: true,
     });
 
-    const byPlatform: any = {};
+    const byStore: StatsResponse['byStore'] = {};
 
-    for (const platform of platforms) {
-      const free = await prisma.game.count({
+    for (const store of stores) {
+      const free = await prisma.offer.count({
         where: {
-          platform: platform.platform,
+          storeId: store.storeId,
           isFree: true,
         },
       });
 
-      const discounted = await prisma.game.count({
+      const discountedCount = await prisma.offer.count({
         where: {
-          platform: platform.platform,
+          storeId: store.storeId,
           discountPercent: { gt: 0 },
         },
       });
 
-      byPlatform[platform.platform] = {
-        total: platform._count,
+      byStore[store.storeId] = {
+        total: store._count,
         free,
-        discounted,
+        discounted: discountedCount,
       };
     }
 
-    const topDiscounts = await prisma.game.findMany({
+    const topDiscounts = await prisma.offer.findMany({
       select: {
-        title: true,
-        platform: true,
+        storeId: true,
         discountPercent: true,
+        game: { select: { title: true, slug: true } },
       },
       where: { discountPercent: { gt: 0 } },
       orderBy: { discountPercent: 'desc' },
@@ -195,32 +227,33 @@ export class GameService {
       freeGames,
       discountedGames,
       averageDiscount: Math.round(averageDiscount * 100) / 100,
-      byPlatform,
-      topDiscounts: topDiscounts.map((g) => ({
-        title: g.title,
-        platform: g.platform,
-        discount: g.discountPercent,
+      byStore,
+      topDiscounts: topDiscounts.map((o) => ({
+        title: o.game.title,
+        slug: o.game.slug,
+        storeId: o.storeId,
+        discount: o.discountPercent,
       })),
       lastUpdate: lastUpdate?.createdAt || null,
     };
   }
 
   async getPriceHistory(gameTitle: string) {
-    const game = await prisma.game.findFirst({
-      where: { title: gameTitle },
+    const offer = await prisma.offer.findFirst({
+      where: { game: { title: gameTitle } },
     });
 
-    if (!game) {
+    if (!offer) {
       throw new Error(`Игра "${gameTitle}" не найдена`);
     }
 
     const history = await prisma.priceHistory.findMany({
-      where: { gameId: game.id },
+      where: { offerId: offer.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
-    return { currency: game.currency, history };
+    return { currency: offer.currency, history };
   }
 
   async getUpdateLogs(limit: number = 50) {
@@ -260,13 +293,15 @@ export class GameService {
 
     // Встроенный в SQLite LIKE сворачивает регистр только для ASCII, поэтому
     // кириллицу фильтруем в JS — иначе «ВЕДЬМАК» не находит «Ведьмак».
-    const games = await prisma.game.findMany({
+    const offers = await prisma.offer.findMany({
       orderBy: { discountPercent: 'desc' },
+      include: { game: true },
     });
 
-    return games
-      .filter((game) => game.title.toLowerCase().includes(lowerQuery))
-      .slice(0, 20);
+    return offers
+      .filter((offer) => offer.game.title.toLowerCase().includes(lowerQuery))
+      .slice(0, 20)
+      .map(toListItem);
   }
 }
 

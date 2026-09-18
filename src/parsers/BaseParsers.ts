@@ -1,13 +1,15 @@
-import { ParsedGame, Platform, UpdateResult } from '../types.js';
+import { KNOWN_STORES, ParsedGame, StoreId, UpdateResult } from '../types.js';
 import prisma from '../database.js';
+import currencyService from '../services/currencyService.js';
+import { normalizeTitle, slugify } from '../lib/titleNormalizer.js';
 import { detectGameKind } from './helpers.js';
 
 export abstract class BaseParser {
-  protected platform: Platform;
+  protected storeId: StoreId;
   protected name: string;
 
-  constructor(platform: Platform, name: string) {
-    this.platform = platform;
+  constructor(storeId: StoreId, name: string) {
+    this.storeId = storeId;
     this.name = name;
   }
 
@@ -25,27 +27,33 @@ export abstract class BaseParser {
     let freedCount = 0;
 
     try {
+      await this.ensureStore();
+
       for (const game of games) {
-        const existing = await prisma.game.findUnique({
-          where: { title_platform: { title: game.title, platform: this.platform } },
+        const gameId = await this.upsertGame(game);
+
+        const originalPriceRub = await currencyService.toRub(game.originalPrice, game.currency);
+        const currentPriceRub = await currencyService.toRub(game.currentPrice, game.currency);
+
+        const offerData = {
+          originalPrice: game.originalPrice,
+          currentPrice: game.currentPrice,
+          currency: game.currency,
+          originalPriceRub,
+          currentPriceRub,
+          discountPercent: game.discountPercent,
+          isFree: game.isFree,
+          gameUrl: game.gameUrl,
+          saleEndDate: game.saleEndDate,
+        };
+
+        const existing = await prisma.offer.findUnique({
+          where: { gameId_storeId: { gameId, storeId: this.storeId } },
         });
 
         if (!existing) {
-          await prisma.game.create({
-            data: {
-              title: game.title,
-              platform: this.platform,
-              originalPrice: game.originalPrice,
-              currentPrice: game.currentPrice,
-              currency: game.currency,
-              discountPercent: game.discountPercent,
-              isFree: game.isFree,
-              kind: detectGameKind(game.title),
-              gameUrl: game.gameUrl,
-              imageUrl: game.imageUrl,
-              description: game.description,
-              saleEndDate: game.saleEndDate,
-            },
+          await prisma.offer.create({
+            data: { gameId, storeId: this.storeId, ...offerData },
           });
           newCount++;
 
@@ -59,7 +67,7 @@ export abstract class BaseParser {
           if (oldPrice !== game.currentPrice || oldDiscount !== game.discountPercent) {
             await prisma.priceHistory.create({
               data: {
-                gameId: existing.id,
+                offerId: existing.id,
                 oldPrice: oldPrice,
                 newPrice: game.currentPrice,
                 oldDiscount: oldDiscount,
@@ -68,21 +76,9 @@ export abstract class BaseParser {
             });
           }
 
-          await prisma.game.update({
+          await prisma.offer.update({
             where: { id: existing.id },
-            data: {
-              originalPrice: game.originalPrice,
-              currentPrice: game.currentPrice,
-              currency: game.currency,
-              discountPercent: game.discountPercent,
-              isFree: game.isFree,
-              // Пересчитываем и у старых записей: так до них доезжают поправки в правилах
-              kind: detectGameKind(game.title),
-              gameUrl: game.gameUrl,
-              imageUrl: game.imageUrl,
-              description: game.description,
-              saleEndDate: game.saleEndDate,
-            },
+            data: offerData,
           });
           updatedCount++;
 
@@ -96,7 +92,7 @@ export abstract class BaseParser {
 
       await prisma.updateLog.create({
         data: {
-          platform: this.platform,
+          platform: this.storeId,
           gamesCount: games.length,
           newGames: newCount,
           updatedGames: updatedCount,
@@ -113,7 +109,7 @@ export abstract class BaseParser {
       );
 
       return {
-        platform: this.platform,
+        storeId: this.storeId,
         total: games.length,
         new: newCount,
         updated: updatedCount,
@@ -125,7 +121,7 @@ export abstract class BaseParser {
 
       await prisma.updateLog.create({
         data: {
-          platform: this.platform,
+          platform: this.storeId,
           gamesCount: 0,
           newGames: 0,
           updatedGames: 0,
@@ -148,5 +144,68 @@ export abstract class BaseParser {
     const startedAt = Date.now();
     const games = await this.parse();
     return this.saveGames(games, startedAt);
+  }
+
+  /** Offer ссылается на Store внешним ключом, поэтому магазин заводим до первой записи. */
+  private async ensureStore(): Promise<void> {
+    const known = KNOWN_STORES.find((s) => s.id === this.storeId);
+
+    await prisma.store.upsert({
+      where: { id: this.storeId },
+      create: { id: this.storeId, name: known?.name ?? this.name, kind: known?.kind ?? 'official' },
+      update: {},
+    });
+  }
+
+  /**
+   * Каноническая игра по нормализованному названию: одна на все магазины.
+   * Название, картинку и описание задаёт первый магазин, остальные только
+   * заполняют пустые поля. kind пересчитывается при каждом прогоне — так до
+   * старых записей доезжают поправки в правилах detectGameKind.
+   */
+  private async upsertGame(game: ParsedGame): Promise<number> {
+    const normalizedTitle = normalizeTitle(game.title);
+    const kind = detectGameKind(game.title);
+
+    const existing = await prisma.game.findUnique({ where: { normalizedTitle } });
+
+    if (existing) {
+      await prisma.game.update({
+        where: { id: existing.id },
+        data: {
+          kind,
+          imageUrl: existing.imageUrl ?? game.imageUrl,
+          description: existing.description ?? game.description,
+        },
+      });
+      return existing.id;
+    }
+
+    const created = await prisma.game.create({
+      data: {
+        slug: await this.uniqueSlug(game.title),
+        title: game.title,
+        normalizedTitle,
+        kind,
+        imageUrl: game.imageUrl,
+        description: game.description,
+      },
+    });
+    return created.id;
+  }
+
+  /**
+   * slugify теряет часть различий (пунктуацию, транслитерация сводит «е» и «ё»),
+   * поэтому разные нормализованные названия могут дать один слаг — добавляем суффикс.
+   */
+  private async uniqueSlug(title: string): Promise<string> {
+    const base = slugify(title);
+    let slug = base;
+
+    for (let n = 2; await prisma.game.findUnique({ where: { slug }, select: { id: true } }); n++) {
+      slug = `${base}-${n}`;
+    }
+
+    return slug;
   }
 }

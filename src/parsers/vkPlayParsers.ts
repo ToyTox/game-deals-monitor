@@ -208,7 +208,7 @@ export class VkPlayParser extends BaseParser {
 
     return {
       title: item.name.trim(),
-      platform: 'vkplay',
+      storeId: 'vkplay',
       originalPrice,
       currentPrice,
       discountPercent: cost.discount || 0,

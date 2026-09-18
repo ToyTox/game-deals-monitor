@@ -1,4 +1,5 @@
 import { GameKind, ParsedGame } from '../types.js';
+import { normalizeTitle } from '../lib/titleNormalizer.js';
 
 // \b в JS-регулярках не знает кириллицу, поэтому границы слова задаём через \p{L}\p{N}.
 const NOT_WORD_BEFORE = '(?<![\\p{L}\\p{N}])';
@@ -31,8 +32,9 @@ export function detectGameKind(title: string): GameKind {
 }
 
 /**
- * Пара (title, platform) в базе уникальна, поэтому одинаковые названия внутри одного
- * прогона схлопываем заранее — иначе одна и та же запись создаётся и тут же перезаписывается.
+ * Оффер в базе уникален по паре (каноническая игра, магазин), а игру ищут по normalizeTitle,
+ * поэтому варианты одного названия внутри прогона схлопываем заранее — иначе один и тот же
+ * оффер создаётся и тут же перезаписывается.
  *
  * Из дублей остаётся вариант с большей скидкой; при равенстве побеждает первый.
  */
@@ -40,7 +42,7 @@ export function dedupeByTitle(games: ParsedGame[]): ParsedGame[] {
   const byTitle = new Map<string, ParsedGame>();
 
   for (const game of games) {
-    const key = game.title.toLowerCase();
+    const key = normalizeTitle(game.title);
     const existing = byTitle.get(key);
 
     if (!existing || game.discountPercent > existing.discountPercent) {

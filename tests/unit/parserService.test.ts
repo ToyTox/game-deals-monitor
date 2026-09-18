@@ -41,7 +41,7 @@ vi.mock('../../src/parsers/vkPlayParsers.js', () => {
 });
 
 function result(platform: string): UpdateResult {
-  return { platform, total: 1, new: 1, updated: 0, freed: 0 } as UpdateResult;
+  return { storeId: platform, total: 1, new: 1, updated: 0, freed: 0 };
 }
 
 describe('ParserService', () => {
@@ -104,7 +104,7 @@ describe('ParserService', () => {
     it('возвращает результаты всех парсеров', async () => {
       const results = await new ParserService().parseAll();
 
-      expect(results.map((r) => r.platform)).toEqual(['steam', 'epic', 'gog', 'vkplay']);
+      expect(results.map((r) => r.storeId)).toEqual(['steam', 'epic', 'gog', 'vkplay']);
     });
 
     // На этом держится устойчивость крона: падение одной площадки
@@ -114,8 +114,8 @@ describe('ParserService', () => {
 
       const results = await new ParserService().parseAll();
 
-      expect(results.map((r) => r.platform)).toEqual(['steam', 'epic', 'gog', 'vkplay']);
-      expect(results.filter((r) => !r.error).map((r) => r.platform)).toEqual(['steam', 'gog', 'vkplay']);
+      expect(results.map((r) => r.storeId)).toEqual(['steam', 'epic', 'gog', 'vkplay']);
+      expect(results.filter((r) => !r.error).map((r) => r.storeId)).toEqual(['steam', 'gog', 'vkplay']);
     });
 
     // Упавшая площадка не пропадает молча: UI показывает её в итоге обновления
@@ -125,7 +125,7 @@ describe('ParserService', () => {
       const results = await new ParserService().parseAll();
 
       expect(results[1]).toEqual({
-        platform: 'epic',
+        storeId: 'epic',
         total: 0,
         new: 0,
         updated: 0,
@@ -151,7 +151,7 @@ describe('ParserService', () => {
       const results = await new ParserService().parseAll();
 
       expect(results).toHaveLength(4);
-      expect(results[1]).toMatchObject({ platform: 'epic', error: 'undefined' });
+      expect(results[1]).toMatchObject({ storeId: 'epic', error: 'undefined' });
     });
   });
 });
