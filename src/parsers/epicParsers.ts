@@ -2,6 +2,8 @@ import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
 
+const REQUEST_TIMEOUT = 15000;
+
 interface EpicElement {
   title: string;
   id: string;
@@ -86,6 +88,7 @@ export class EpicParser extends BaseParser {
             'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           },
+          timeout: REQUEST_TIMEOUT,
         }
       );
 
