@@ -3,29 +3,19 @@ import { load as loadHtml } from 'cheerio';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
 import { dedupeByTitle, delay, parsePriceText } from './helpers.js';
+import {
+  COUNTRY_CODE,
+  FALLBACK_CURRENCY,
+  LANGUAGE,
+  REQUEST_TIMEOUT,
+  USER_AGENT,
+} from './steamRegion.js';
 
 const STEAM_STORE = 'https://store.steampowered.com';
-
-// Регион магазина. По умолчанию — российский Steam: цены в рублях, названия и описания на русском.
-const COUNTRY_CODE = process.env.STEAM_COUNTRY_CODE || 'ru';
-const LANGUAGE = process.env.STEAM_LANGUAGE || 'russian';
 
 // Сколько страниц поиска по акциям обойти (0 — не обходить вовсе, только витрину).
 const SEARCH_PAGES = Number.parseInt(process.env.STEAM_SEARCH_PAGES || '3', 10);
 const SEARCH_PAGE_SIZE = 100;
-
-const REQUEST_TIMEOUT = 15000;
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36';
-
-/** Валюта региона, если Steam её не вернул явно. */
-const FALLBACK_CURRENCY: Record<string, string> = {
-  ru: 'RUB',
-  kz: 'KZT',
-  by: 'BYN',
-  ua: 'UAH',
-  us: 'USD',
-};
 
 interface SteamFeaturedItem {
   id: number;
