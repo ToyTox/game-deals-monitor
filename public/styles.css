@@ -108,6 +108,17 @@ header h1 {
   gap: 2rem;
 }
 
+.header-link {
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-link:hover {
+  color: var(--accent);
+}
+
 .health-status {
   display: flex;
   align-items: center;

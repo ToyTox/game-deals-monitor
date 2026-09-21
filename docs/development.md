@@ -46,7 +46,8 @@ game-deals-monitor/
 ├── prisma/
 │   ├── migrations/          # миграции Prisma
 │   └── schema.prisma        # модели Game, PriceHistory, UpdateLog
-├── public/                  # веб-интерфейс (index.html, app.js, styles.css)
+├── public/                  # веб-интерфейс: index.html + app.js (витрина),
+│                            # admin.html + admin.js (ручки API), common.js, styles.css
 ├── src/
 │   ├── index.ts             # композиция: env, cron, graceful shutdown
 │   ├── server.ts            # startServer(): проверка БД, listen, фоновый прогон парсеров
