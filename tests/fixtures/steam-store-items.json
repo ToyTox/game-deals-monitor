@@ -1,0 +1,123 @@
+{
+  "response": {
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 620,
+        "success": 1,
+        "visible": true,
+        "name": "Portal 2",
+        "store_url_path": "app/620/Portal_2",
+        "appid": 620,
+        "assets": {
+          "asset_url_format": "steam/apps/620/${FILENAME}?t=1745363004",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "hero_capsule": "hero_capsule.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "library_hero.jpg",
+          "community_icon": "25a5a16b2423bf7487ac5340b5b0948cef48c5f8",
+          "page_background_path": "app/620?t=1745363004",
+          "last_modified": 1745363004
+        },
+        "best_purchase_option": {
+          "packageid": 7877,
+          "purchase_option_name": "Portal 2",
+          "final_price_in_cents": "38500",
+          "formatted_final_price": "385 руб",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 1282100,
+        "success": 1,
+        "visible": true,
+        "name": "REMNANT II®",
+        "store_url_path": "app/1282100/REMNANT_II",
+        "appid": 1282100,
+        "assets": {
+          "asset_url_format": "steam/apps/1282100/${FILENAME}?t=1764659459",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "page_background": "page_bg_generated_v6b.jpg",
+          "hero_capsule": "hero_capsule.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "library_hero.jpg",
+          "library_hero_2x": "library_hero_2x.jpg",
+          "community_icon": "7223e40d6e1d9a25db48cce857d1b83c5f2c5704",
+          "page_background_path": "app/1282100?t=1764659459",
+          "raw_page_background": "page_bg_raw.jpg",
+          "last_modified": 1764659459
+        },
+        "best_purchase_option": {
+          "packageid": 855020,
+          "purchase_option_name": "Remnant II® - Standard Edition",
+          "final_price_in_cents": "57300",
+          "original_price_in_cents": "286900",
+          "formatted_final_price": "573 руб",
+          "formatted_original_price": "2869 руб",
+          "discount_pct": 80,
+          "active_discounts": [
+            {
+              "discount_amount": "229600",
+              "discount_description": "#discount_desc_preset_midweek",
+              "discount_end_date": 1790614800
+            }
+          ],
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 1091500,
+        "success": 15,
+        "visible": false,
+        "name": "Cyberpunk 2077",
+        "store_url_path": "app/1091500/Cyberpunk_2077",
+        "appid": 1091500
+      },
+      {
+        "item_type": 0,
+        "id": 2669320,
+        "success": 1,
+        "visible": true,
+        "name": "EA SPORTS FC™ 25",
+        "store_url_path": "app/2669320/EA_SPORTS_FC_25",
+        "appid": 2669320,
+        "assets": {
+          "asset_url_format": "steam/apps/2669320/${FILENAME}?t=1788548615",
+          "main_capsule": "86a267ec44fc57124127eba46f25120813374317/capsule_616x353.jpg",
+          "main_capsule_2x": "86a267ec44fc57124127eba46f25120813374317/capsule_616x353_2x.jpg",
+          "small_capsule": "59500266e56f82c44a42f75519013aac085b05fc/capsule_231x87.jpg",
+          "small_capsule_2x": "59500266e56f82c44a42f75519013aac085b05fc/capsule_231x87_2x.jpg",
+          "header": "ec3fb7747fd8080ef53d7686e0d98c5abe1f51f1/header.jpg",
+          "header_2x": "ec3fb7747fd8080ef53d7686e0d98c5abe1f51f1/header_2x.jpg",
+          "hero_capsule": "9155f6ba62e2f9ca2772c81cea78c9b3657ad8db/hero_capsule.jpg",
+          "hero_capsule_2x": "9155f6ba62e2f9ca2772c81cea78c9b3657ad8db/hero_capsule_2x.jpg",
+          "library_capsule": "c5ddf022ee6adee9aa6a6a6e8cb9e1c8b8490022/library_600x900.jpg",
+          "library_capsule_2x": "c5ddf022ee6adee9aa6a6a6e8cb9e1c8b8490022/library_600x900_2x.jpg",
+          "library_hero": "bcda7f94f7d2ce21e91d3571c7d42a1053fbf0d0/library_hero.jpg",
+          "library_hero_2x": "bcda7f94f7d2ce21e91d3571c7d42a1053fbf0d0/library_hero_2x.jpg",
+          "community_icon": "f6c4988f3e7b965451a3d9fca34014585d1754e2",
+          "page_background_path": "app/2669320?t=1788548615",
+          "last_modified": 1788548615
+        }
+      }
+    ]
+  }
+}

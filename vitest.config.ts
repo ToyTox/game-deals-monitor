@@ -28,6 +28,7 @@ export default defineConfig({
       STEAM_COUNTRY_CODE: 'ru',
       STEAM_LANGUAGE: 'russian',
       STEAM_SEARCH_PAGES: '0',
+      STEAM_WISHLIST_DELAY: '0',
       VKPLAY_MAX_PAGES: '2',
       VKPLAY_ONLY_DISCOUNTED: 'true',
       VKPLAY_REQUEST_DELAY: '0',
