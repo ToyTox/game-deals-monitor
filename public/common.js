@@ -71,9 +71,12 @@ function renderCards(grid, games, expanded = false) {
       ? `<p class="card-desc">${esc(game.description)}</p>`
       : '';
 
-    const priceHtml = game.isFree
-      ? `<div class="card-price">Бесплатно</div>`
-      : `<div class="card-price"><span class="current">${esc(fmtPrice(game.currentPrice, game.currency))}</span>${game.originalPrice && game.originalPrice !== game.currentPrice ? `<s class="original">${esc(fmtPrice(game.originalPrice, game.currency))}</s>` : ''}</div>`;
+    // Позиции вишлиста, которых нет в продаже в нашем регионе, приходят без цены
+    const priceHtml = game.unavailable
+      ? `<div class="card-price card-price-none">Нет в продаже в регионе</div>`
+      : game.isFree
+        ? `<div class="card-price">Бесплатно</div>`
+        : `<div class="card-price"><span class="current">${esc(fmtPrice(game.currentPrice, game.currency))}</span>${game.originalPrice && game.originalPrice !== game.currentPrice ? `<s class="original">${esc(fmtPrice(game.originalPrice, game.currency))}</s>` : ''}</div>`;
 
     const badgesHtml = `
       <div class="badges">
@@ -98,7 +101,10 @@ function renderCards(grid, games, expanded = false) {
         </details>`
       : '';
 
-    const metaHtml = `<p class="card-meta">ID: ${esc(game.id)}</p><p class="card-meta">Создано: ${esc(fmtDate(game.createdAt))}</p><p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>`;
+    // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем
+    const metaHtml = game.id === undefined
+      ? ''
+      : `<p class="card-meta">ID: ${esc(game.id)}</p><p class="card-meta">Создано: ${esc(fmtDate(game.createdAt))}</p><p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>`;
 
     return `
       <article class="card${expanded ? ' card-expanded' : ''}">

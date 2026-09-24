@@ -605,6 +605,32 @@ input[type="checkbox"] {
   display: none;
 }
 
+/* Ввод SteamID для раздела списка желаемого */
+.wishlist-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.wishlist-form input {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.wishlist-form input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
 .filter-chips {
   display: flex;
   flex-wrap: wrap;
@@ -916,6 +942,13 @@ input[type="checkbox"] {
 
 .card-price .current {
   color: var(--accent);
+}
+
+/* Позиция вишлиста без цены: нет в продаже в регионе, снята или ещё не вышла */
+.card-price-none {
+  font-size: 1rem;
+  font-weight: normal;
+  color: var(--muted);
 }
 
 .card-price .original {

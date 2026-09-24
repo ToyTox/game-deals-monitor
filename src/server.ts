@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import type { Express } from 'express';
 import type { Server } from 'http';
 import type { AddressInfo } from 'net';
@@ -24,11 +25,41 @@ export interface StartedServer {
   parsing: Promise<void>;
 }
 
+/** Кто слушает порт: `pid команда` по строке на процесс. Пусто, если lsof молчит или его нет. */
+function listenersOnPort(port: number): { pid: string; command: string }[] {
+  try {
+    const out = execFileSync('lsof', ['-nP', `-i:${port}`, '-sTCP:LISTEN', '-F', 'pc'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    // Формат -F: строки `p<pid>` и `c<command>`, команда идёт следом за своим pid.
+    const found: { pid: string; command: string }[] = [];
+    let pid = '';
+
+    for (const line of out.split('\n')) {
+      if (line.startsWith('p')) pid = line.slice(1);
+      else if (line.startsWith('c') && pid) found.push({ pid, command: line.slice(1) });
+    }
+
+    return found;
+  } catch {
+    // lsof нет (или он ничего не нашёл) — обойдёмся общим советом.
+    return [];
+  }
+}
+
 /** Понятный текст вместо голого стека Node — чаще всего это забытый второй экземпляр. */
 function describeListenError(error: NodeJS.ErrnoException, port: number): string {
   switch (error.code) {
-    case 'EADDRINUSE':
-      return `❌ Порт ${port} уже занят — вероятно, запущен другой экземпляр. Освободите порт (lsof -i :${port}) или укажите другой: PORT=3001 npm run dev`;
+    case 'EADDRINUSE': {
+      const holders = listenersOnPort(port);
+      const howToFree = holders.length
+        ? `Держат порт: ${holders.map(({ pid, command }) => `${command} (pid ${pid})`).join(', ')}. Освободить: kill ${holders.map(({ pid }) => pid).join(' ')}`
+        : `Посмотрите, кто держит порт: lsof -i :${port}`;
+
+      return `❌ Порт ${port} уже занят — вероятно, запущен другой экземпляр.\n   ${howToFree}\n   Либо запуститесь на другом порту: PORT=3001 npm run dev`;
+    }
     case 'EACCES':
       return `❌ Нет прав на порт ${port}. Выберите порт выше 1024 или укажите другой: PORT=3001 npm run dev`;
     default:
