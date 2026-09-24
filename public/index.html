@@ -55,6 +55,25 @@
       </div>
     </section>
 
+    <!-- Wishlist Section -->
+    <section class="catalog-section" id="section-wishlist">
+      <div class="section-head">
+        <h2>⭐ Мой список желаемого</h2>
+        <div class="section-meta" id="wishlist-meta"></div>
+      </div>
+      <form id="wishlist-form" class="wishlist-form">
+        <input id="wishlist-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="SteamID64, ссылка на профиль или ник"
+               aria-label="SteamID, ссылка на профиль или ник">
+        <button type="submit">Показать</button>
+        <button type="button" id="wishlist-clear" hidden>Забыть</button>
+      </form>
+      <div id="wishlist-filters" class="section-filters"></div>
+      <div id="wishlist-state"></div>
+      <div id="wishlist-grid" class="grid"></div>
+      <nav id="wishlist-pager" class="pager" aria-label="Пагинация: список желаемого"></nav>
+    </section>
+
     <!-- Free Games Section -->
     <section class="catalog-section" id="section-free">
       <div class="section-head">

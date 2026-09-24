@@ -10,10 +10,40 @@ const SORT_LABELS = {
   price_desc: 'Сначала дорогие',
   newest: 'Новые первыми',
   title: 'По названию',
-  ending: 'Скоро закончатся'
+  ending: 'Скоро закончатся',
+  // Только для вишлиста: этих полей у офферов каталога нет
+  added: 'Недавно добавленные',
+  priority: 'По приоритету в Steam'
 };
 
+// Ключ в localStorage для введённого SteamID
+const WISHLIST_USER_KEY = 'steamWishlistUser';
+
 const sections = {
+  wishlist: {
+    title: 'список желаемого',
+    loading: 'Читаем список желаемого…',
+    empty: 'В списке желаемого ничего не найдено',
+    sorts: ['discount', 'price_asc', 'price_desc', 'title', 'ending', 'added', 'priority'],
+    sort: 'discount',
+    // Вишлист всегда из Steam — чипы площадок и переключатель демо/DLC ему не нужны
+    usesPlatformFilters: false,
+    onlyDiscounted: true,
+    user: '',
+    platforms: [],
+    showExtras: false,
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    requestId: 0,
+    buildUrl: (s) => '/api/wishlist?' + new URLSearchParams({
+      user: s.user,
+      sort: s.sort,
+      onlyDiscounted: String(s.onlyDiscounted),
+      limit: String(s.pageSize),
+      offset: String((s.page - 1) * s.pageSize)
+    }).toString()
+  },
   free: {
     title: 'бесплатные игры',
     params: { free: 'true' },
@@ -50,10 +80,12 @@ function sectionPages(s) {
   return Math.max(1, Math.ceil(s.total / s.pageSize));
 }
 
-function setSectionState(key, cls, msg) {
+function setSectionState(key, cls, msg, html = null) {
   const el = $(`${key}-state`);
   el.className = cls;
-  el.textContent = msg;
+  // html — только для собственных подсказок раздела, в него не попадает ввод пользователя
+  if (html === null) el.textContent = msg;
+  else el.innerHTML = html;
 }
 
 // ---- Фильтры разделов: платформы, демо/DLC/kit'ы и сортировка ----
@@ -65,7 +97,12 @@ let platformList = [];
 function saveFilters() {
   const data = {};
   Object.entries(sections).forEach(([key, s]) => {
-    data[key] = { platforms: s.platforms, sort: s.sort, showExtras: s.showExtras };
+    data[key] = {
+      platforms: s.platforms,
+      sort: s.sort,
+      showExtras: s.showExtras,
+      onlyDiscounted: s.onlyDiscounted
+    };
   });
   try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
 }
@@ -81,11 +118,73 @@ function restoreFilters() {
     if (s.sorts.includes(f.sort)) s.sort = f.sort;
     if (Array.isArray(f.platforms)) s.platforms = f.platforms.filter(p => typeof p === 'string');
     if (typeof f.showExtras === 'boolean') s.showExtras = f.showExtras;
+    if (typeof f.onlyDiscounted === 'boolean') s.onlyDiscounted = f.onlyDiscounted;
   });
+}
+
+// ---- Раздел вишлиста: ввод SteamID ----
+function setWishlistUser(user) {
+  const s = sections.wishlist;
+  s.user = user;
+  s.page = 1;
+  $('wishlist-input').value = user;
+  $('wishlist-clear').hidden = !user;
+
+  try {
+    if (user) localStorage.setItem(WISHLIST_USER_KEY, user);
+    else localStorage.removeItem(WISHLIST_USER_KEY);
+  } catch (e) {}
+}
+
+function clearWishlist() {
+  setWishlistUser('');
+  $('wishlist-grid').innerHTML = '';
+  $('wishlist-meta').textContent = '';
+  $('wishlist-pager').innerHTML = '';
+  sections.wishlist.total = 0;
+  // Ответ на уже улетевший запрос не должен нарисоваться в очищенный раздел
+  sections.wishlist.requestId++;
+  setSectionState('wishlist', 'state-empty', 'Введите SteamID, ссылку на профиль или ник');
+}
+
+function initWishlist() {
+  $('wishlist-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const value = $('wishlist-input').value.trim();
+    if (!value) return clearWishlist();
+    setWishlistUser(value);
+    loadSection('wishlist');
+  });
+
+  $('wishlist-clear').addEventListener('click', clearWishlist);
+
+  let saved = '';
+  try { saved = localStorage.getItem(WISHLIST_USER_KEY) || ''; } catch (e) {}
+
+  if (saved) setWishlistUser(saved);
+  else clearWishlist();
 }
 
 function renderFilters(key) {
   const s = sections[key];
+
+  // У вишлиста вместо площадок и демо/DLC — переключатель «только со скидкой»
+  if (s.usesPlatformFilters === false) {
+    $(`${key}-filters`).innerHTML = `
+      <label class="filter-toggle">
+        <input type="checkbox" data-discounted${s.onlyDiscounted ? ' checked' : ''}>
+        Только со скидкой
+      </label>
+      <label class="filter-sort">
+        Сортировка:
+        <select data-sort>
+          ${s.sorts.map(k => `<option value="${k}"${k === s.sort ? ' selected' : ''}>${esc(SORT_LABELS[k])}</option>`).join('')}
+        </select>
+      </label>
+    `;
+    return;
+  }
+
   const chips = platformList.length > 0
     ? `<div class="filter-chips" role="group" aria-label="Платформы">
         <button type="button" class="chip" data-platform="">Все</button>
@@ -190,7 +289,7 @@ async function loadSection(key) {
     if (s.platforms.length > 0) query.set('platform', s.platforms.join(','));
     if (!s.showExtras) query.set('kind', 'game');
 
-    const data = await api('/api/games?' + query.toString());
+    const data = await api(s.buildUrl ? s.buildUrl(s) : '/api/games?' + query.toString());
     if (requestId !== s.requestId) return;
     s.total = data.total;
 
@@ -203,13 +302,17 @@ async function loadSection(key) {
 
     if (!data.games || data.games.length === 0) {
       grid.innerHTML = '';
-      setSectionState(key, 'state-empty', s.platforms.length > 0 ? 'Ничего не найдено для выбранных платформ' : s.empty);
-      $(`${key}-meta`).textContent = '';
+      const empty = s.buildUrl && s.onlyDiscounted
+        ? 'Ни на одну игру из списка желаемого сейчас нет скидки'
+        : s.platforms.length > 0 ? 'Ничего не найдено для выбранных платформ' : s.empty;
+      setSectionState(key, 'state-empty', empty);
+      $(`${key}-meta`).textContent = wishlistMeta(s, data);
     } else {
       setSectionState(key, '', '');
       renderCards(grid, data.games);
       const from = (s.page - 1) * s.pageSize + 1;
-      $(`${key}-meta`).textContent = `${from}–${from + data.games.length - 1} из ${s.total} · страница ${s.page} из ${pages}`;
+      const range = `${from}–${from + data.games.length - 1} из ${s.total} · страница ${s.page} из ${pages}`;
+      $(`${key}-meta`).textContent = s.buildUrl ? `${wishlistMeta(s, data)} · ${range}` : range;
     }
 
     renderPager(key);
@@ -218,12 +321,34 @@ async function loadSection(key) {
     grid.innerHTML = '';
     $(`${key}-meta`).textContent = '';
     $(`${key}-pager`).innerHTML = '';
-    setSectionState(key, 'state-error', e.message);
+
+    // Пустой и закрытый вишлист Steam не различает, поэтому вместо голой ошибки
+    // показываем, что именно проверить в настройках профиля
+    if (s.buildUrl && /приватност/i.test(e.message)) {
+      setSectionState(key, 'state-empty', '', `${esc(e.message)}.
+        Проверьте, что «Игровые данные» открыты в
+        <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener">настройках приватности</a>.`);
+    } else {
+      setSectionState(key, 'state-error', e.message);
+    }
   }
 }
 
+// Сводка по вишлисту: сколько всего, сколько со скидкой, сколько без цены
+function wishlistMeta(s, data) {
+  if (!s.buildUrl) return '';
+
+  const parts = [`в вишлисте ${data.wishlistTotal}`, `со скидкой ${data.discountedTotal}`];
+  if (data.unavailableTotal > 0) parts.push(`без цены ${data.unavailableTotal}`);
+  if (data.truncated) parts.push(`показаны первые ${data.wishlistTotal > 2000 ? 2000 : data.wishlistTotal}`);
+
+  return parts.join(' · ');
+}
+
 function loadSections() {
-  return Promise.all(Object.keys(sections).map(loadSection));
+  // Вишлист без введённого SteamID грузить нечем — раздел ждёт ввода
+  const keys = Object.keys(sections).filter(key => !sections[key].buildUrl || sections[key].user);
+  return Promise.all(keys.map(loadSection));
 }
 
 async function goToPage(key, page) {
@@ -260,6 +385,8 @@ Object.keys(sections).forEach(key => {
       s.sort = e.target.value;
     } else if (e.target.matches('input[data-extras]')) {
       s.showExtras = e.target.checked;
+    } else if (e.target.matches('input[data-discounted]')) {
+      s.onlyDiscounted = e.target.checked;
     } else {
       return;
     }
@@ -378,6 +505,7 @@ async function loadPlatforms() {
     platformList = platforms;
     let pruned = false;
     Object.values(sections).forEach(s => {
+      if (s.usesPlatformFilters === false) return;
       const kept = s.platforms.filter(p => platforms.includes(p));
       if (kept.length !== s.platforms.length) {
         s.platforms = kept;
@@ -589,6 +717,7 @@ $('refresh-all').addEventListener('click', async () => {
   restoreFilters();
   // Сортировка видна сразу, даже если список платформ не загрузится
   Object.keys(sections).forEach(key => renderFilters(key));
+  initWishlist();
   await reloadAll();
   markRefreshed();
 })();

@@ -5,6 +5,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import gamesRouter from './routes/games.js';
 import adminRouter from './routes/admin.js';
+import wishlistRouter from './routes/wishlist.js';
 
 // Статика лежит в корне проекта: src/ (tsx) и dist/ (node) — оба на уровень ниже
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -30,6 +31,7 @@ export function createApp(): express.Express {
   // Routes
   app.use('/api/games', gamesRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/wishlist', wishlistRouter);
 
   // Root endpoint
   app.get('/api', (req, res) => {
@@ -45,6 +47,7 @@ export function createApp(): express.Express {
         platformGames: '/api/games/platform/:name',
         search: '/api/games/search?q=query',
         singleGame: '/api/games/:title',
+        wishlist: '/api/wishlist?user=<SteamID|ссылка|ник>',
         stats: '/api/admin/stats',
         updates: '/api/admin/updates',
         manualParse: '/api/admin/parse (POST)',
