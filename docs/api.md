@@ -29,6 +29,7 @@
     "platformGames": "/api/games/platform/:name",
     "search": "/api/games/search?q=query",
     "singleGame": "/api/games/:title",
+    "wishlist": "/api/wishlist?user=<SteamID|ссылка|ник>",
     "stats": "/api/admin/stats",
     "updates": "/api/admin/updates",
     "manualParse": "/api/admin/parse (POST)",
@@ -198,6 +199,102 @@ curl 'http://localhost:3000/api/games/Cyberpunk%202077'
 Если игры нет — `404` с текстом ошибки из сервиса.
 
 > **Порядок роутов важен.** `/free`, `/top-discounts`, `/search` и `/platform/:name` объявлены в `src/routes/games.ts` **до** `/:title`, поэтому они не перехватываются как названия игр. Новые статические пути добавляйте туда же — выше `/:title`.
+
+---
+
+## Список желаемого
+
+### `GET /api/wishlist`
+
+Список желаемого Steam с текущими ценами и скидками. Читается **анонимно**: ни ключа Steam Web API, ни логина не нужно — достаточно, чтобы владелец не закрыл вишлист настройками приватности.
+
+Данные берутся не из базы, а напрямую из Steam: `IWishlistService/GetWishlist` отдаёт список appid, `IStoreBrowseService/GetItems` — названия, обложки, цены и скидки пачками по 100 appid за запрос. Разобранный вишлист кэшируется в памяти процесса на 15 минут, поэтому листание страниц и переключение фильтра в сеть не ходят.
+
+| Параметр | Тип | По умолчанию | Описание |
+|---|---|---|---|
+| `user` | string | — | **Обязателен.** SteamID64 (`76561198006409530`), ссылка на профиль (`steamcommunity.com/profiles/<id>` или `steamcommunity.com/id/<ник>`) либо просто ник. Ник резолвится через XML профиля сообщества |
+| `onlyDiscounted` | `true` \| `false` | `true` | Оставить только позиции со скидкой. Передайте `onlyDiscounted=false`, чтобы получить весь вишлист |
+| `sort` | string | `discount` | Порядок выдачи, см. таблицу ниже. Неизвестное значение молча заменяется на `discount` |
+| `limit` | number | `12` | Сколько записей вернуть |
+| `offset` | number | `0` | Смещение для пагинации |
+
+| `sort` | Порядок |
+|---|---|
+| `discount` | По убыванию скидки |
+| `price_asc` | По возрастанию цены, позиции без цены в конце |
+| `price_desc` | По убыванию цены, позиции без цены в конце |
+| `title` | По названию (`localeCompare` с локалью `ru`, в отличие от побайтового сравнения в `/api/games`) |
+| `ending` | Сначала акции, которые закончатся раньше; позиции без `saleEndDate` в конце |
+| `added` | Сначала недавно добавленные в вишлист |
+| `priority` | По приоритету, выставленному владельцем в Steam; позиции без приоритета в конце |
+
+При равных значениях порядок добивается по `appId`, так что страницы при листании не пересекаются. Сортировка и пагинация делаются в памяти по уже загруженному вишлисту.
+
+```bash
+curl 'http://localhost:3000/api/wishlist?user=76561198028121353&sort=discount&limit=2'
+```
+
+```json
+{
+  "games": [
+    {
+      "appId": 1282100,
+      "title": "REMNANT II®",
+      "platform": "steam",
+      "kind": "game",
+      "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1282100/header.jpg",
+      "gameUrl": "https://store.steampowered.com/app/1282100/REMNANT_II",
+      "originalPrice": 2869,
+      "currentPrice": 573,
+      "currency": "RUB",
+      "currentPriceRub": 573,
+      "discountPercent": 80,
+      "isFree": false,
+      "unavailable": false,
+      "saleEndDate": "2026-09-28T17:00:00.000Z",
+      "addedAt": "2024-02-23T22:56:12.000Z",
+      "priority": 2
+    }
+  ],
+  "total": 197,
+  "limit": 2,
+  "offset": 0,
+  "sort": "discount",
+  "steamId": "76561198028121353",
+  "wishlistTotal": 37264,
+  "discountedTotal": 197,
+  "unavailableTotal": 1332,
+  "truncated": true
+}
+```
+
+Поля ответа помимо списка:
+
+| Поле | Описание |
+|---|---|
+| `total` | Число записей под фильтром (без учёта `limit`/`offset`) |
+| `steamId` | SteamID64, в который разрешился `user` |
+| `wishlistTotal` | Сколько позиций в вишлисте всего, **до** применения потолка и фильтра |
+| `discountedTotal` | Сколько позиций со скидкой |
+| `unavailableTotal` | Сколько позиций без цены |
+| `truncated` | Вишлист больше потолка и был усечён |
+
+Позиция с `unavailable: true` — это товар, которого нет в продаже в регионе, снятый с продажи или ещё не вышедший. У неё `currentPrice: null` и `currency: null`. **Это не бесплатная игра:** `isFree` ставится только при настоящей нулевой цене.
+
+`currency` всегда берётся из региона (`STEAM_COUNTRY_CODE`) — Steam в этом ответе отдаёт цену отформатированной строкой, кода валюты в нём нет.
+
+> **Потолок.** Разбирается не больше 2000 позиций (`MAX_WISHLIST_ITEMS` в `src/services/steamWishlistService.ts`). Встречаются вишлисты на десятки тысяч игр, а это сотни запросов к Steam и ограничение по частоте. Отсечка применяется **после** сортировки по приоритету владельца, так что отбрасывается наименее желанное, а `truncated` сообщает об этом клиенту.
+
+Коды ошибок:
+
+| Код | Когда | `code` в теле |
+|---|---|---|
+| `400` | `user` не передан или пуст | — |
+| `404` | Профиль не найден либо ввод не похож ни на SteamID, ни на ссылку, ни на ник | `not_found` |
+| `404` | Вишлист пуст **либо** закрыт настройками приватности | `empty_or_private` |
+| `502` | Steam не ответил | `upstream` |
+
+> Пустой и закрытый вишлист **неразличимы**: Steam в обоих случаях отвечает `{"response":{}}`. Поэтому один код на два случая и текст с оговоркой (см. [TODO.md](../TODO.md), раздел «Ограничения by design»).
 
 ---
 

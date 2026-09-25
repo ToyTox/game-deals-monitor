@@ -47,6 +47,7 @@ curl http://localhost:3000/api/admin/health
 | `STEAM_COUNTRY_CODE` | `ru` | Регион магазина Steam (`cc`): определяет валюту цен |
 | `STEAM_LANGUAGE` | `russian` | Язык Steam (`l`): определяет язык названий и описаний |
 | `STEAM_SEARCH_PAGES` | `3` | Сколько страниц по 100 игр обойти в поиске по акциям; `0` — только витрина |
+| `STEAM_WISHLIST_DELAY` | `300` | Пауза между пачками по 100 appid при чтении списка желаемого, мс |
 | `VKPLAY_MAX_PAGES` | `0` | Сколько страниц каталога VK Play обойти (75 игр на страницу); `0` — весь каталог |
 | `VKPLAY_ONLY_DISCOUNTED` | `true` | Сохранять только игры со скидкой; `false` — все продаваемые |
 | `VKPLAY_REQUEST_DELAY` | `300` | Пауза между запросами одного воркера к каталогу VK Play, мс |
