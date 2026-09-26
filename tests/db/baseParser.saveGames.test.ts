@@ -194,6 +194,47 @@ describe('BaseParser.saveGames', () => {
     });
   });
 
+  describe('теги', () => {
+    /** Названия тегов игры в порядке записи. */
+    const savedTags = async () =>
+      (await prisma.game.findFirstOrThrow({ include: { tags: true } })).tags.map((t) => t.name);
+
+    it('заводит теги в справочнике и связывает с игрой', async () => {
+      await new TestParser().saveGames([
+        game({ tags: [{ slug: 'экшен', name: 'Экшен' }, { slug: 'инди', name: 'Инди' }] }),
+      ]);
+
+      expect(await savedTags()).toEqual(['Экшен', 'Инди']);
+      expect(await prisma.tag.count()).toBe(2);
+    });
+
+    it('один тег у двух игр — одна запись в справочнике', async () => {
+      const tags = [{ slug: 'экшен', name: 'Экшен' }];
+
+      await new TestParser().saveGames([
+        game({ tags }),
+        game({ title: 'Portal', gameUrl: 'https://store.steampowered.com/app/400', tags }),
+      ]);
+
+      expect(await prisma.tag.count()).toBe(1);
+    });
+
+    it('следующий прогон заменяет набор тегов', async () => {
+      await new TestParser().saveGames([game({ tags: [{ slug: 'экшен', name: 'Экшен' }] })]);
+      await new TestParser().saveGames([game({ tags: [{ slug: 'инди', name: 'Инди' }] })]);
+
+      expect(await savedTags()).toEqual(['Инди']);
+    });
+
+    // У Steam теги есть только у части игр: витрина их не отдаёт, а GOG отдаёт всегда.
+    it('магазин без тегов не стирает уже проставленные', async () => {
+      await new TestParser('gog').saveGames([game({ tags: [{ slug: 'экшен', name: 'Экшен' }] })]);
+      await new TestParser('steam').saveGames([game()]);
+
+      expect(await savedTags()).toEqual(['Экшен']);
+    });
+  });
+
   describe('условие записи истории цен', () => {
     const seed = () => new TestParser().saveGames([game()]);
 

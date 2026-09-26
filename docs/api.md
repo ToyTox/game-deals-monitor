@@ -89,6 +89,10 @@ curl 'http://localhost:3000/api/games?platform=steam,gog&minDiscount=50&sort=pri
       "imageUrl": "https://.../header.jpg",
       "description": null,
       "saleEndDate": null,
+      "tags": [
+        { "slug": "экшен", "name": "Экшен" },
+        { "slug": "инди", "name": "Инди" }
+      ],
       "createdAt": "2026-09-07T21:08:35.781Z",
       "updatedAt": "2026-09-07T21:08:35.781Z",
       "priceHistory": [
@@ -111,6 +115,8 @@ curl 'http://localhost:3000/api/games?platform=steam,gog&minDiscount=50&sort=pri
 ```
 
 `total` — общее число записей под фильтром (без учёта `limit`/`offset`).
+
+Поля объекта игры: `id`, `title`, `platform`, `originalPrice`, `currentPrice`, `discountPercent`, `isFree`, `gameUrl`, `imageUrl`, `description`, `saleEndDate`, `tags` (массив `{ slug, name }` — жанры и метки магазина, максимум 6, может быть пустым), `createdAt`, `updatedAt`, `priceHistory`.
 
 ### `GET /api/games/free`
 

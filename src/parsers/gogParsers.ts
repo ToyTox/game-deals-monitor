@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
-import { parsePriceText } from './helpers.js';
+import { normalizeTags, parsePriceText } from './helpers.js';
 import { ParsedGame } from '../types.js';
 
 // Витринный API магазина: тот же, что питает catalog.gog.com. Версионных гарантий у него нет,
@@ -40,6 +40,8 @@ interface GogProduct {
   storeLink?: string;
   productType?: string;
   price?: GogPrice | null;
+  genres?: Array<{ name?: string }>;
+  tags?: Array<{ name?: string }>;
 }
 
 interface GogCatalogResponse {
@@ -142,6 +144,9 @@ export class GOGParser extends BaseParser {
     const currentPrice = parseMoney(price?.finalMoney) ?? parsePriceText(price?.final);
     const originalPrice = parseMoney(price?.baseMoney) ?? parsePriceText(price?.base);
 
+    // Жанры идут первыми: они точнее описывают игру, чем пользовательские теги.
+    const tags = normalizeTags([...(item.genres || []), ...(item.tags || [])]);
+
     return {
       title: item.title,
       storeId: 'gog',
@@ -152,6 +157,7 @@ export class GOGParser extends BaseParser {
       isFree: currentPrice === 0,
       gameUrl,
       imageUrl: item.coverHorizontal,
+      tags: tags.length > 0 ? tags : undefined,
     };
   }
 

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { load as loadHtml } from 'cheerio';
 import { BaseParser } from './BaseParsers.js';
-import { ParsedGame } from '../types.js';
-import { dedupeByTitle, delay, parsePriceText } from './helpers.js';
+import { ParsedGame, ParsedTag } from '../types.js';
+import { dedupeByTitle, delay, normalizeTags, parsePriceText } from './helpers.js';
 import {
   COUNTRY_CODE,
   FALLBACK_CURRENCY,
@@ -12,6 +12,10 @@ import {
 } from './steamRegion.js';
 
 const STEAM_STORE = 'https://store.steampowered.com';
+
+// Карточки поиска несут только id тегов — имена приходят отдельным словарём популярных тегов.
+// Редкие теги в него не входят: их id просто отбрасываются.
+const TAG_DICTIONARY = `${STEAM_STORE}/tagdata/populartags`;
 
 // Сколько страниц поиска по акциям обойти (0 — не обходить вовсе, только витрину).
 const SEARCH_PAGES = Number.parseInt(process.env.STEAM_SEARCH_PAGES || '3', 10);
@@ -46,6 +50,11 @@ interface SteamFeaturedCategoriesResponse {
   status?: number;
 }
 
+interface SteamTag {
+  tagid?: number;
+  name?: string;
+}
+
 interface SteamSearchResponse {
   success?: number;
   results_html?: string;
@@ -63,6 +72,9 @@ interface SteamSearchResponse {
  * Оба запроса идут с cc/l региона, поэтому цены приходят в рублях, а названия — на русском.
  */
 export class SteamParser extends BaseParser {
+  /** tagid -> название тега на языке региона; заполняется один раз за прогон. */
+  private tagNames = new Map<number, string>();
+
   constructor() {
     super('steam', `Steam (${COUNTRY_CODE.toUpperCase()})`);
   }
@@ -76,6 +88,7 @@ export class SteamParser extends BaseParser {
     }
 
     if (SEARCH_PAGES > 0) {
+      await this.loadTagNames();
       const specials = await this.parseSpecials();
       for (const [appId, game] of specials) {
         // Витрина отдаёт точные цены из API — не затираем её данными из HTML.
@@ -92,6 +105,47 @@ export class SteamParser extends BaseParser {
     );
 
     return unique;
+  }
+
+  /** Словарь популярных тегов. Без него у карточек поиска остаются голые id — тегов просто не будет. */
+  private async loadTagNames(): Promise<void> {
+    try {
+      const response = await axios.get<SteamTag[]>(`${TAG_DICTIONARY}/${LANGUAGE}`, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept-Language': `${COUNTRY_CODE},en;q=0.5`,
+        },
+        timeout: REQUEST_TIMEOUT,
+      });
+
+      for (const tag of response.data || []) {
+        if (tag?.tagid && tag.name) {
+          this.tagNames.set(tag.tagid, tag.name.trim());
+        }
+      }
+    } catch (error) {
+      console.error('❌ Steam словарь тегов:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  /** "[1644,10383,599]" -> теги с именами из словаря; незнакомые id пропускаются. */
+  private parseTagIds(raw?: string): ParsedTag[] | undefined {
+    if (!raw || this.tagNames.size === 0) return undefined;
+
+    let ids: unknown;
+    try {
+      ids = JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+    if (!Array.isArray(ids)) return undefined;
+
+    const names = ids.map((id) => ({
+      name: typeof id === 'number' ? this.tagNames.get(id) : undefined,
+    }));
+    const tags = normalizeTags(names);
+
+    return tags.length > 0 ? tags : undefined;
   }
 
   /** Витрина магазина: скидки, топ продаж, новинки. */
@@ -238,6 +292,7 @@ export class SteamParser extends BaseParser {
         gameUrl: `${STEAM_STORE}/app/${appId}`,
         imageUrl: row.find('.search_capsule img').first().attr('src') || undefined,
         currency,
+        tags: this.parseTagIds(row.attr('data-ds-tagids')),
       });
     });
 

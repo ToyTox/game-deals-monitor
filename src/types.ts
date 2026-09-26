@@ -22,6 +22,12 @@ export const KNOWN_STORES: StoreDefinition[] = [
 export const GAME_KINDS = ["game", "demo", "dlc", "kit"] as const;
 export type GameKind = (typeof GAME_KINDS)[number];
 
+/** Тег игры из каталога магазина: slug для склейки между магазинами, name — подпись на карточке. */
+export interface ParsedTag {
+  slug: string;
+  name: string;
+}
+
 export interface ParsedGame {
   title: string;
   storeId: StoreId;
@@ -35,6 +41,8 @@ export interface ParsedGame {
   imageUrl?: string;
   description?: string;
   saleEndDate?: Date;
+  /** Жанры и метки магазина; сохраняются на канонической игре. */
+  tags?: ParsedTag[];
 }
 
 export interface UpdateResult {

@@ -9,7 +9,8 @@ export { prisma };
  * Удаляем детей явно, а не полагаемся на ON DELETE CASCADE: включает ли
  * адаптер better-sqlite3 PRAGMA foreign_keys — не проверено, а четыре запроса
  * стоят около миллисекунды. Store не чистим: это справочник, парсеры и
- * seedOffer заводят магазины через upsert.
+ * seedOffer заводят магазины через upsert. Tag чистим: его наполняют сами
+ * парсеры, и тег, оставшийся от прошлого теста, ломает счёт записей.
  *
  * Автоинкрементные id при этом продолжают расти (deleteMany не трогает
  * sqlite_sequence), поэтому в тестах нельзя проверять литеральный id.
@@ -18,6 +19,7 @@ export async function resetDb() {
   await prisma.priceHistory.deleteMany();
   await prisma.offer.deleteMany();
   await prisma.game.deleteMany();
+  await prisma.tag.deleteMany();
   await prisma.updateLog.deleteMany();
 }
 

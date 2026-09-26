@@ -25,9 +25,19 @@ model Game {
   updatedAt         DateTime  @updatedAt
 
   offers            Offer[]
+  tags              Tag[]
 
   @@index([kind])
   @@index([createdAt])
+}
+
+/// Тег игры: жанр или метка магазина. slug общий для всех магазинов, name — русское название.
+model Tag {
+  id    Int    @id @default(autoincrement())
+  slug  String @unique
+  name  String
+
+  games Game[]
 }
 
 /// Реестр магазинов, в которых продаются игры (Steam, Epic, GOG и т. д.).

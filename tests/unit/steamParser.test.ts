@@ -12,6 +12,12 @@ const mockedGet = axios.get as unknown as Mock;
 const featured = readJsonFixture('steam-featuredcategories.json');
 const searchHtml = readFixture('steam-search-results.html');
 
+/** Словарь популярных тегов: 777777 в нём нет — такие id парсер отбрасывает. */
+const tagDictionary = [
+  { tagid: 19, name: 'Экшен' },
+  { tagid: 492, name: 'Инди' },
+];
+
 const byTitle = (games: ParsedGame[], title: string) => games.find((g) => g.title === title);
 
 /** Ответ витрины; поиск в базовой конфигурации отключён (STEAM_SEARCH_PAGES=0). */
@@ -134,6 +140,7 @@ describe('SteamParser: разбор HTML поиска', () => {
 
     mockedGet
       .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: tagDictionary })
       .mockResolvedValueOnce({ data: { results_html: searchHtml, total_count: 5 } });
 
     return new Parser().parse();
@@ -168,6 +175,17 @@ describe('SteamParser: разбор HTML поиска', () => {
       originalPrice: 1299,
       discountPercent: 0,
     });
+  });
+
+  it('подставляет названия тегов по data-ds-tagids, неизвестные id пропускает', async () => {
+    expect(byTitle(await parseSearchOnly(), 'Half-Life')?.tags).toEqual([
+      { slug: 'экшен', name: 'Экшен' },
+      { slug: 'инди', name: 'Инди' },
+    ]);
+  });
+
+  it('карточка без data-ds-tagids остаётся без тегов', async () => {
+    expect(byTitle(await parseSearchOnly(), 'Portal')?.tags).toBeUndefined();
   });
 
   // БАГ: при скидке 100% без зачёркнутой цены формула делит на ноль.

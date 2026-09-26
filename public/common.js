@@ -71,6 +71,10 @@ function renderCards(grid, games, expanded = false) {
       ? `<p class="card-desc">${esc(game.description)}</p>`
       : '';
 
+    const tagsHtml = game.tags && game.tags.length > 0
+      ? `<ul class="card-tags">${game.tags.map(t => `<li class="card-tag">${esc(t.name)}</li>`).join('')}</ul>`
+      : '';
+
     // Позиции вишлиста, которых нет в продаже в нашем регионе, приходят без цены
     const priceHtml = game.unavailable
       ? `<div class="card-price card-price-none">Нет в продаже в регионе</div>`
@@ -115,6 +119,7 @@ function renderCards(grid, games, expanded = false) {
           ${priceHtml}
           ${saleEndDateHtml}
           ${descHtml}
+          ${tagsHtml}
           ${metaHtml}
           ${historyHtml}
         </div>

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
+import { normalizeTags } from './helpers.js';
 
 const REQUEST_TIMEOUT = 15000;
 
@@ -26,6 +27,7 @@ interface EpicElement {
       }>;
     }>;
   } | null;
+  tags?: Array<{ name?: string }>;
 }
 
 interface EpicResponse {
@@ -61,6 +63,10 @@ export class EpicParser extends BaseParser {
                     keyImages {
                       type
                       url
+                    }
+                    tags {
+                      id
+                      name
                     }
                     price {
                       totalPrice {
@@ -103,6 +109,8 @@ export class EpicParser extends BaseParser {
 
           const headerImage = item.keyImages?.find((img) => img.type === 'Thumbnail')?.url;
 
+          const tags = normalizeTags(item.tags);
+
           games.push({
             title: item.title,
             storeId: 'epic',
@@ -113,6 +121,7 @@ export class EpicParser extends BaseParser {
             isFree: currentPrice === 0,
             gameUrl: `https://www.epicgames.com/store/en-US/p/${item.id}`,
             imageUrl: headerImage,
+            tags: tags.length > 0 ? tags : undefined,
           });
         }
       }

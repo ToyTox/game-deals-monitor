@@ -26,7 +26,7 @@ function isGameSort(value: unknown): value is GameSort {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GAME_SORTS, value);
 }
 
-type OfferWithGame = Prisma.OfferGetPayload<{ include: { game: true } }> & {
+type OfferWithGame = Prisma.OfferGetPayload<{ include: { game: { include: { tags: true } } } }> & {
   priceHistory?: Prisma.PriceHistoryGetPayload<object>[];
 };
 
@@ -43,6 +43,7 @@ function toListItem({ game, storeId, ...offer }: OfferWithGame) {
     kind: game.kind,
     imageUrl: game.imageUrl,
     description: game.description,
+    tags: game.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
   };
 }
 
@@ -96,7 +97,7 @@ export class GameService {
       take: filter?.limit || 100,
       skip: filter?.offset || 0,
       include: {
-        game: true,
+        game: { include: { tags: true } },
         priceHistory: {
           take: 5,
           orderBy: { createdAt: 'desc' },
@@ -119,7 +120,7 @@ export class GameService {
       where: { isFree: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -129,7 +130,7 @@ export class GameService {
       where: { discountPercent: { gt: 0 } },
       orderBy: { discountPercent: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -139,7 +140,7 @@ export class GameService {
       where: { storeId: platform },
       orderBy: { discountPercent: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -150,7 +151,7 @@ export class GameService {
     const offer = await prisma.offer.findFirst({
       where: { game: { title } },
       include: {
-        game: true,
+        game: { include: { tags: true } },
         priceHistory: {
           orderBy: { createdAt: 'desc' },
         },
@@ -295,7 +296,7 @@ export class GameService {
     // кириллицу фильтруем в JS — иначе «ВЕДЬМАК» не находит «Ведьмак».
     const offers = await prisma.offer.findMany({
       orderBy: { discountPercent: 'desc' },
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
 
     return offers
