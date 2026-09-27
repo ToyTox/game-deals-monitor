@@ -1,6 +1,6 @@
 import prisma from '../database.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { GAME_KINDS, GameKind, StatsResponse } from '../types.js';
+import { GAME_KINDS, GameDetail, GameKind, StatsResponse, StoreKind } from '../types.js';
 
 /**
  * Допустимые сортировки списка игр. Последним ключом везде идёт id: без него
@@ -44,6 +44,39 @@ function toListItem({ game, storeId, ...offer }: OfferWithGame) {
     imageUrl: game.imageUrl,
     description: game.description,
     tags: game.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
+  };
+}
+
+type GameWithOffers = Prisma.GameGetPayload<{
+  include: {
+    tags: true;
+    offers: { include: { store: true; priceHistory: true } };
+  };
+}>;
+
+/**
+ * Игра со всеми предложениями магазинов — ответ страницы одной игры.
+ * Порядок офферов задаёт запрос, здесь его не меняем.
+ */
+function toGameDetail(game: GameWithOffers): GameDetail {
+  return {
+    id: game.id,
+    slug: game.slug,
+    title: game.title,
+    kind: game.kind,
+    imageUrl: game.imageUrl,
+    description: game.description,
+    createdAt: game.createdAt,
+    updatedAt: game.updatedAt,
+    tags: game.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
+    offers: game.offers.map(({ store, gameId, storeId, priceHistory, ...offer }) => ({
+      ...offer,
+      platform: storeId,
+      storeId,
+      storeName: store.name,
+      storeKind: store.kind as StoreKind,
+      priceHistory,
+    })),
   };
 }
 
@@ -159,6 +192,28 @@ export class GameService {
     });
 
     return offer ? toListItem(offer) : null;
+  }
+
+  /**
+   * Игра целиком: все предложения магазинов и полная история цен по каждому.
+   * Запрос идёт от Game, а не от Offer, — иначе одна игра в трёх магазинах
+   * выглядела бы как три разные записи, как в списочных методах.
+   */
+  async getBySlug(slug: string): Promise<GameDetail | null> {
+    const game = await prisma.game.findUnique({
+      where: { slug },
+      include: {
+        tags: true,
+        offers: {
+          include: { store: true, priceHistory: { orderBy: { createdAt: 'desc' } } },
+          // Сначала самое дешёвое предложение, офферы без цены — в конец.
+          // Второй ключ обязателен: при равных ценах порядок иначе плавает.
+          orderBy: [{ currentPriceRub: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+        },
+      },
+    });
+
+    return game ? toGameDetail(game) : null;
   }
 
   async getStats(): Promise<StatsResponse> {

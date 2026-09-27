@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Игра — Game Deals Monitor</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script>
+    // Тема до первой отрисовки: game.js грузится с defer — для этого слишком поздно
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('theme'); } catch (e) {}
+      document.documentElement.dataset.theme =
+        stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🎮 Game Deals Monitor</h1>
+      <div class="header-controls">
+        <a class="header-link" href="/">← К списку</a>
+        <a class="header-link" href="/admin.html">Админка</a>
+        <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Переключить тему"></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="game-state"></div>
+    <article id="game-root" class="game-page" hidden></article>
+  </main>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="/common.js" defer></script>
+  <script src="/game.js" defer></script>
+</body>
+</html>
