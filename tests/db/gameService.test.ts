@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import gameService from '../../src/services/gameService.js';
-import { prisma, resetDb, seedOffer, type OfferSeed } from '../helpers/db.js';
+import { prisma, resetDb, seedManyOffers, seedOffer, type OfferSeed } from '../helpers/db.js';
 
 async function seedGame(seed: OfferSeed) {
   return seedOffer(seed);
@@ -183,6 +183,24 @@ describe('GameService', () => {
 
       expect((await gameService.getGames({ minDiscount: 0 })).total).toBe(1);
       expect((await gameService.getGames({ minDiscount: NaN })).total).toBe(1);
+    });
+
+    /**
+     * SQLite принимает не больше 999 параметров в запросе, а историю цен
+     * Prisma грузила одним `offerId IN (?, …)` на всю страницу, поэтому
+     * getGames падал уже на 998 записях. Страница здесь заведомо больше
+     * тысячи: на меньшей тест проходил и до починки.
+     */
+    it('отдаёт страницу больше тысячи записей и подмешивает историю в каждую', async () => {
+      const offerIds = await seedManyOffers(1200);
+      const last = offerIds[offerIds.length - 1];
+      await prisma.priceHistory.create({ data: { offerId: last, oldPrice: 100, newPrice: 90 } });
+
+      const result = await gameService.getGames({ limit: 1200, sort: 'newest' });
+
+      expect(result.games).toHaveLength(1200);
+      // История приезжает из второго чанка — значит id не перепутались при склейке.
+      expect(result.games.find((g) => g.id === last)?.priceHistory).toHaveLength(1);
     });
 
     // Зафиксировано текущее поведение: `filter?.limit || 100` превращает ноль

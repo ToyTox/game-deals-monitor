@@ -47,6 +47,48 @@ function toListItem({ game, storeId, ...offer }: OfferWithGame) {
   };
 }
 
+/** Сколько последних записей истории цен подмешивать в карточку списка */
+const LIST_PRICE_HISTORY_DEPTH = 5;
+
+/**
+ * Сколько офферов запрашивать историей за раз. SQLite принимает не больше 999
+ * параметров в запросе (SQLITE_MAX_VARIABLE_NUMBER), а связь с take Prisma
+ * грузит одним запросом `WHERE offerId IN (?, …)` и, в отличие от связей без
+ * take, на чанки не разбивает. Поэтому страница от 998 записей падала с
+ * «The query parameter limit supported by your database is exceeded»: 997 id
+ * плюс два служебных параметра — ровно предел.
+ */
+const PRICE_HISTORY_CHUNK = 500;
+
+/**
+ * Последние записи истории цен по каждому офферу, id → история.
+ * Отдельный запрос чанками вместо вложенного include: так размер страницы
+ * списка ничем не ограничен, см. PRICE_HISTORY_CHUNK.
+ */
+async function loadPriceHistory(offerIds: number[]) {
+  const byOffer = new Map<number, Prisma.PriceHistoryGetPayload<object>[]>();
+
+  for (let from = 0; from < offerIds.length; from += PRICE_HISTORY_CHUNK) {
+    const chunk = offerIds.slice(from, from + PRICE_HISTORY_CHUNK);
+    const rows = await prisma.offer.findMany({
+      where: { id: { in: chunk } },
+      select: {
+        id: true,
+        priceHistory: {
+          take: LIST_PRICE_HISTORY_DEPTH,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    for (const row of rows) {
+      byOffer.set(row.id, row.priceHistory);
+    }
+  }
+
+  return byOffer;
+}
+
 type GameWithOffers = Prisma.GameGetPayload<{
   include: {
     tags: true;
@@ -129,19 +171,16 @@ export class GameService {
       orderBy: GAME_SORTS[sort],
       take: filter?.limit || 100,
       skip: filter?.offset || 0,
-      include: {
-        game: { include: { tags: true } },
-        priceHistory: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-        },
-      },
+      include: { game: { include: { tags: true } } },
     });
 
     const total = await prisma.offer.count({ where });
+    const priceHistory = await loadPriceHistory(offers.map((offer) => offer.id));
 
     return {
-      games: offers.map(toListItem),
+      games: offers.map((offer) =>
+        toListItem({ ...offer, priceHistory: priceHistory.get(offer.id) ?? [] })
+      ),
       total,
       limit: filter?.limit || 100,
       offset: filter?.offset || 0,

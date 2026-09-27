@@ -85,3 +85,53 @@ export async function seedOffer(seed: OfferSeed) {
     },
   });
 }
+
+/**
+ * Много офферов по шаблону «Offer 1», «Offer 2», … — для тестов на большие
+ * страницы. seedOffer здесь не годится: три запроса на запись превращают
+ * тысячу офферов в десятки секунд, а createMany укладывается в доли секунды.
+ * Скидка у всех разная (по номеру), чтобы сортировка по умолчанию была
+ * однозначной. Возвращает id офферов в порядке создания.
+ */
+export async function seedManyOffers(count: number, prefix = 'Offer') {
+  await prisma.store.upsert({
+    where: { id: 'steam' },
+    create: { id: 'steam', name: 'steam', kind: 'official' },
+    update: {},
+  });
+
+  const titles = Array.from({ length: count }, (_, i) => `${prefix} ${i + 1}`);
+
+  await prisma.game.createMany({
+    data: titles.map((title) => ({
+      title,
+      normalizedTitle: normalizeTitle(title),
+      slug: slugify(title),
+      kind: 'game',
+    })),
+  });
+
+  const games = await prisma.game.findMany({
+    where: { title: { startsWith: prefix } },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+
+  await prisma.offer.createMany({
+    data: games.map((game, i) => ({
+      gameId: game.id,
+      storeId: 'steam',
+      gameUrl: `https://example.test/${game.id}`,
+      originalPrice: 1000,
+      currentPrice: 500,
+      currency: 'RUB',
+      originalPriceRub: 1000,
+      currentPriceRub: 500,
+      discountPercent: i % 90,
+      isFree: false,
+    })),
+  });
+
+  const offers = await prisma.offer.findMany({ select: { id: true }, orderBy: { id: 'asc' } });
+  return offers.map((offer) => offer.id);
+}
