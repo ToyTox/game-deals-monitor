@@ -12,6 +12,10 @@
 
 Админка (`public/admin.html`): панель ручек для всех методов API и сырой JSON ответа. Ссылка на неё — в шапке главной страницы.
 
+### `GET /game.html?slug=<slug>`
+
+Страница одной игры (`public/game.html`): обложка, теги, описание, цены во всех магазинах, где игра найдена, и полная история цен по каждому. Открывается по клику на название в карточке списка; у позиций списка желаемого записи в базе нет, поэтому оттуда ссылка ведёт сразу в магазин.
+
 ### `GET /api`
 
 Карта эндпоинтов и метаданные сервиса.
@@ -29,6 +33,7 @@
     "platformGames": "/api/games/platform/:name",
     "search": "/api/games/search?q=query",
     "singleGame": "/api/games/:title",
+    "gameBySlug": "/api/games/slug/:slug",
     "wishlist": "/api/wishlist?user=<SteamID|ссылка|ник>",
     "stats": "/api/admin/stats",
     "updates": "/api/admin/updates",
@@ -120,6 +125,8 @@ curl 'http://localhost:3000/api/games?platform=steam,gog&minDiscount=50&sort=pri
 
 Поля объекта игры: `id`, `title`, `platform`, `originalPrice`, `currentPrice`, `discountPercent`, `isFree`, `gameUrl`, `imageUrl`, `description`, `saleEndDate`, `tags` (массив `{ slug, name }` — жанры и метки магазина, максимум 6, может быть пустым), `createdAt`, `updatedAt`, `priceHistory`.
 
+> `description` в карточках списка на главной больше не выводится — он показывается на странице игры (`/game.html`), а в API поле как было, так и осталось.
+
 ### `GET /api/games/free`
 
 Только бесплатные игры, сортировка — по дате добавления (сначала новые).
@@ -175,6 +182,59 @@ curl 'http://localhost:3000/api/games/search?q=witcher'
 ```json
 { "error": "Укажите поисковый запрос (минимум 2 символа)" }
 ```
+
+### `GET /api/games/slug/:slug`
+
+Игра целиком по slug: одна запись с массивом `offers` — по одному на каждый магазин, где игра нашлась. Списочные ручки на ту же игру в трёх магазинах отдают три отдельные записи, а `/api/games/:title` — одну, но с произвольным магазином из трёх. Предложения отсортированы по рублёвому эквиваленту текущей цены, от дешёвого к дорогому; предложения без цены — в конце. История цен по каждому предложению отдаётся **целиком** (новые записи первыми), а не пятью последними, как в списке.
+
+```bash
+curl 'http://localhost:3000/api/games/slug/cyberpunk-2077'
+```
+
+```json
+{
+  "id": 1,
+  "slug": "cyberpunk-2077",
+  "title": "Cyberpunk 2077",
+  "kind": "game",
+  "imageUrl": "https://example.test/cover.jpg",
+  "description": "Приключенческий боевик в открытом мире Найт-Сити",
+  "createdAt": "2026-09-16T20:12:04.268Z",
+  "updatedAt": "2026-09-27T03:02:00.008Z",
+  "tags": [{ "slug": "rpg", "name": "RPG" }],
+  "offers": [
+    {
+      "id": 10,
+      "platform": "gog",
+      "storeId": "gog",
+      "storeName": "GOG",
+      "storeKind": "official",
+      "originalPrice": 2999,
+      "currentPrice": 1499,
+      "currency": "RUB",
+      "originalPriceRub": 2999,
+      "currentPriceRub": 1499,
+      "discountPercent": 50,
+      "isFree": false,
+      "gameUrl": "https://example.test/gog/cyberpunk-2077",
+      "saleEndDate": null,
+      "createdAt": "2026-09-16T20:12:04.268Z",
+      "updatedAt": "2026-09-27T03:02:00.008Z",
+      "priceHistory": [
+        { "id": 12, "offerId": 10, "oldPrice": 2999, "newPrice": 1499, "oldDiscount": 0, "newDiscount": 50, "createdAt": "2026-09-07T21:08:35.781Z" }
+      ]
+    }
+  ]
+}
+```
+
+Если игры нет — `404`:
+
+```json
+{ "error": "Игра не найдена" }
+```
+
+> `platform` дублирует `storeId` — поле оставлено, потому что карточки списка читают платформу именно из него.
 
 ### `GET /api/games/:title`
 

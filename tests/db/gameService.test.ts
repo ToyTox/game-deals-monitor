@@ -302,6 +302,69 @@ describe('GameService', () => {
     });
   });
 
+  describe('getBySlug', () => {
+    it('собирает предложения всех магазинов в одну запись', async () => {
+      await seedGame({ title: 'Quantum Break', platform: 'steam', currentPrice: 700 });
+      await seedGame({ title: 'Quantum Break', platform: 'gog', currentPrice: 500 });
+      await seedGame({ title: 'Quantum Break', platform: 'vkplay', currentPrice: null });
+
+      const found = await gameService.getBySlug('quantum-break');
+
+      expect(found).not.toBeNull();
+      expect(found?.offers).toHaveLength(3);
+      expect(found?.offers.map((o) => o.platform)).toEqual(['gog', 'steam', 'vkplay']);
+    });
+
+    it('отдаёт название магазина и его тип', async () => {
+      await seedGame({ title: 'Portal 2', platform: 'steam' });
+
+      const found = await gameService.getBySlug('portal-2');
+
+      expect(found?.offers[0]).toMatchObject({
+        storeName: 'steam',
+        storeKind: 'official',
+      });
+    });
+
+    it('отдаёт историю цен целиком, а не последние пять', async () => {
+      const offer = await seedGame({ title: 'Deus Ex' });
+      for (let i = 0; i < 7; i++) {
+        await prisma.priceHistory.create({
+          data: { offerId: offer.id, oldPrice: 100 + i, newPrice: 90 + i },
+        });
+      }
+
+      const found = await gameService.getBySlug('deus-ex');
+
+      expect(found?.offers[0].priceHistory).toHaveLength(7);
+    });
+
+    it('отдаёт теги игры', async () => {
+      const offer = await seedGame({ title: 'Bioshock' });
+      const game = await prisma.game.findUnique({ where: { id: offer.gameId } });
+      await prisma.game.update({
+        where: { id: game!.id },
+        data: {
+          tags: {
+            create: [
+              { slug: 'fps', name: 'FPS' },
+              { slug: 'scifi', name: 'Sci-Fi' },
+            ],
+          },
+        },
+      });
+
+      const found = await gameService.getBySlug('bioshock');
+
+      expect(found?.tags).toHaveLength(2);
+      expect(found?.tags.map((t) => t.name)).toEqual(expect.arrayContaining(['FPS', 'Sci-Fi']));
+    });
+
+    it('на неизвестный slug отдаёт null', async () => {
+      expect(await gameService.getBySlug('nonexistent-game-slug')).toBeNull();
+    });
+  });
+
   describe('getStats', () => {
     it('на пустой базе отдаёт нули, а не NaN', async () => {
       const stats = await gameService.getStats();

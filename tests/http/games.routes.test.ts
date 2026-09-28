@@ -242,6 +242,35 @@ describe('GET /api/games/:title', () => {
   });
 });
 
+describe('GET /api/games/slug/:slug', () => {
+  beforeEach(resetDb);
+
+  it('отдаёт игру со всеми предложениями', async () => {
+    await seedGame('The Witcher 3', { platform: 'steam' });
+    await seedGame('The Witcher 3', { platform: 'gog' });
+
+    const res = await request(app).get('/api/games/slug/the-witcher-3').expect(200);
+
+    expect(res.body.title).toBe('The Witcher 3');
+    expect(res.body.offers).toHaveLength(2);
+  });
+
+  it('на неизвестный slug отдаёт 404', async () => {
+    const res = await request(app).get('/api/games/slug/unknown-game').expect(404);
+
+    expect(res.body.error).toBe('Игра не найдена');
+  });
+
+  it('не перехватывается роутом по названию', async () => {
+    await seedGame('Hollow Knight');
+
+    const res = await request(app).get('/api/games/slug/hollow-knight').expect(200);
+
+    expect(Array.isArray(res.body.offers)).toBe(true);
+    expect(res.body.platform).toBeUndefined();
+  });
+});
+
 describe('GET /api/games/:title/price-history', () => {
   beforeEach(resetDb);
 
