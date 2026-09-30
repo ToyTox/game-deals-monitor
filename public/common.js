@@ -67,8 +67,14 @@ function renderCards(grid, games, expanded = false) {
       ? `<p class="card-sale">Акция до: ${esc(fmtDate(game.saleEndDate))}</p>`
       : '';
 
-    const descHtml = game.description
+    // В сетке описание не показываем — оно на странице игры (game.html).
+    // Развёрнутая карточка осталась только в админке, там текст к месту.
+    const descHtml = expanded && game.description
       ? `<p class="card-desc">${esc(game.description)}</p>`
+      : '';
+
+    const tagsHtml = game.tags && game.tags.length > 0
+      ? `<ul class="card-tags">${game.tags.map(t => `<li class="card-tag">${esc(t.name)}</li>`).join('')}</ul>`
       : '';
 
     // Позиции вишлиста, которых нет в продаже в нашем регионе, приходят без цены
@@ -101,6 +107,13 @@ function renderCards(grid, games, expanded = false) {
         </details>`
       : '';
 
+    // Заголовок ведёт на страницу игры, но у позиций вишлиста нет записи в базе
+    // (и slug'а) — там он остаётся прямой ссылкой в магазин, без дубля ниже.
+    const titleHtml = game.slug
+      ? `<h3><a href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
+         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
+      : `<h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
+
     // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем
     const metaHtml = game.id === undefined
       ? ''
@@ -111,10 +124,11 @@ function renderCards(grid, games, expanded = false) {
         ${imgHtml}
         <div class="card-content">
           ${badgesHtml}
-          <h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>
+          ${titleHtml}
           ${priceHtml}
           ${saleEndDateHtml}
           ${descHtml}
+          ${tagsHtml}
           ${metaHtml}
           ${historyHtml}
         </div>

@@ -47,6 +47,7 @@ export function createApp(): express.Express {
         platformGames: '/api/games/platform/:name',
         search: '/api/games/search?q=query',
         singleGame: '/api/games/:title',
+        gameBySlug: '/api/games/slug/:slug',
         wishlist: '/api/wishlist?user=<SteamID|ссылка|ник>',
         stats: '/api/admin/stats',
         updates: '/api/admin/updates',

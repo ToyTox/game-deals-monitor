@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { BaseParser } from './BaseParsers.js';
 import { ParsedGame } from '../types.js';
-import { dedupeByTitle, delay, parseMoscowDate } from './helpers.js';
+import { dedupeByTitle, delay, normalizeTags, parseMoscowDate } from './helpers.js';
 
 const VKPLAY_API = 'https://api.vkplay.ru/play/games/';
 const VKPLAY_STORE = 'https://vkplay.ru/play/game';
@@ -58,6 +58,7 @@ interface VkPlayGame {
   logo?: string;
   short_descr?: string;
   descr?: string;
+  tags?: Array<{ name?: string }>;
 }
 
 interface VkPlayListResponse {
@@ -205,6 +206,7 @@ export class VkPlayParser extends BaseParser {
       originalRaw !== undefined && originalRaw !== null && originalRaw > 0 ? originalRaw : currentPrice;
 
     const description = (item.short_descr || item.descr || '').trim();
+    const tags = normalizeTags(item.tags);
 
     return {
       title: item.name.trim(),
@@ -219,6 +221,7 @@ export class VkPlayParser extends BaseParser {
       description: description || undefined,
       currency: cost.currency || 'RUB',
       saleEndDate: parseMoscowDate(cost.date_end),
+      tags: tags.length > 0 ? tags : undefined,
     };
   }
 

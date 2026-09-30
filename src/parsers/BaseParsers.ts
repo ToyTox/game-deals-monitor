@@ -1,4 +1,4 @@
-import { KNOWN_STORES, ParsedGame, StoreId, UpdateResult } from '../types.js';
+import { KNOWN_STORES, ParsedGame, ParsedTag, StoreId, UpdateResult } from '../types.js';
 import prisma from '../database.js';
 import currencyService from '../services/currencyService.js';
 import { normalizeTitle, slugify } from '../lib/titleNormalizer.js';
@@ -168,6 +168,7 @@ export abstract class BaseParser {
     const kind = detectGameKind(game.title);
 
     const existing = await prisma.game.findUnique({ where: { normalizedTitle } });
+    const tags = await this.upsertTags(game.tags);
 
     if (existing) {
       await prisma.game.update({
@@ -176,6 +177,8 @@ export abstract class BaseParser {
           kind,
           imageUrl: existing.imageUrl ?? game.imageUrl,
           description: existing.description ?? game.description,
+          // Магазин без тегов не должен стирать теги, проставленные другим магазином.
+          ...(tags.length > 0 ? { tags: { set: tags } } : {}),
         },
       });
       return existing.id;
@@ -189,9 +192,32 @@ export abstract class BaseParser {
         kind,
         imageUrl: game.imageUrl,
         description: game.description,
+        tags: { connect: tags },
       },
     });
     return created.id;
+  }
+
+  /**
+   * Завести теги в справочнике и вернуть их id для связи с игрой. slug общий для всех
+   * магазинов, поэтому одинаковые жанры из GOG и VK Play схлопываются в одну запись.
+   */
+  private async upsertTags(tags?: ParsedTag[]): Promise<{ id: number }[]> {
+    if (!tags || tags.length === 0) return [];
+
+    const ids: { id: number }[] = [];
+
+    for (const tag of tags) {
+      const saved = await prisma.tag.upsert({
+        where: { slug: tag.slug },
+        create: { slug: tag.slug, name: tag.name },
+        update: {},
+        select: { id: true },
+      });
+      ids.push(saved);
+    }
+
+    return ids;
   }
 
   /**

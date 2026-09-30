@@ -1,6 +1,6 @@
 import prisma from '../database.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { GAME_KINDS, GameKind, StatsResponse } from '../types.js';
+import { GAME_KINDS, GameDetail, GameKind, StatsResponse, StoreKind } from '../types.js';
 
 /**
  * Допустимые сортировки списка игр. Последним ключом везде идёт id: без него
@@ -26,7 +26,7 @@ function isGameSort(value: unknown): value is GameSort {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GAME_SORTS, value);
 }
 
-type OfferWithGame = Prisma.OfferGetPayload<{ include: { game: true } }> & {
+type OfferWithGame = Prisma.OfferGetPayload<{ include: { game: { include: { tags: true } } } }> & {
   priceHistory?: Prisma.PriceHistoryGetPayload<object>[];
 };
 
@@ -43,6 +43,82 @@ function toListItem({ game, storeId, ...offer }: OfferWithGame) {
     kind: game.kind,
     imageUrl: game.imageUrl,
     description: game.description,
+    tags: game.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
+  };
+}
+
+/** Сколько последних записей истории цен подмешивать в карточку списка */
+const LIST_PRICE_HISTORY_DEPTH = 5;
+
+/**
+ * Сколько офферов запрашивать историей за раз. SQLite принимает не больше 999
+ * параметров в запросе (SQLITE_MAX_VARIABLE_NUMBER), а связь с take Prisma
+ * грузит одним запросом `WHERE offerId IN (?, …)` и, в отличие от связей без
+ * take, на чанки не разбивает. Поэтому страница от 998 записей падала с
+ * «The query parameter limit supported by your database is exceeded»: 997 id
+ * плюс два служебных параметра — ровно предел.
+ */
+const PRICE_HISTORY_CHUNK = 500;
+
+/**
+ * Последние записи истории цен по каждому офферу, id → история.
+ * Отдельный запрос чанками вместо вложенного include: так размер страницы
+ * списка ничем не ограничен, см. PRICE_HISTORY_CHUNK.
+ */
+async function loadPriceHistory(offerIds: number[]) {
+  const byOffer = new Map<number, Prisma.PriceHistoryGetPayload<object>[]>();
+
+  for (let from = 0; from < offerIds.length; from += PRICE_HISTORY_CHUNK) {
+    const chunk = offerIds.slice(from, from + PRICE_HISTORY_CHUNK);
+    const rows = await prisma.offer.findMany({
+      where: { id: { in: chunk } },
+      select: {
+        id: true,
+        priceHistory: {
+          take: LIST_PRICE_HISTORY_DEPTH,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    for (const row of rows) {
+      byOffer.set(row.id, row.priceHistory);
+    }
+  }
+
+  return byOffer;
+}
+
+type GameWithOffers = Prisma.GameGetPayload<{
+  include: {
+    tags: true;
+    offers: { include: { store: true; priceHistory: true } };
+  };
+}>;
+
+/**
+ * Игра со всеми предложениями магазинов — ответ страницы одной игры.
+ * Порядок офферов задаёт запрос, здесь его не меняем.
+ */
+function toGameDetail(game: GameWithOffers): GameDetail {
+  return {
+    id: game.id,
+    slug: game.slug,
+    title: game.title,
+    kind: game.kind,
+    imageUrl: game.imageUrl,
+    description: game.description,
+    createdAt: game.createdAt,
+    updatedAt: game.updatedAt,
+    tags: game.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
+    offers: game.offers.map(({ store, gameId, storeId, priceHistory, ...offer }) => ({
+      ...offer,
+      platform: storeId,
+      storeId,
+      storeName: store.name,
+      storeKind: store.kind as StoreKind,
+      priceHistory,
+    })),
   };
 }
 
@@ -95,19 +171,16 @@ export class GameService {
       orderBy: GAME_SORTS[sort],
       take: filter?.limit || 100,
       skip: filter?.offset || 0,
-      include: {
-        game: true,
-        priceHistory: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-        },
-      },
+      include: { game: { include: { tags: true } } },
     });
 
     const total = await prisma.offer.count({ where });
+    const priceHistory = await loadPriceHistory(offers.map((offer) => offer.id));
 
     return {
-      games: offers.map(toListItem),
+      games: offers.map((offer) =>
+        toListItem({ ...offer, priceHistory: priceHistory.get(offer.id) ?? [] })
+      ),
       total,
       limit: filter?.limit || 100,
       offset: filter?.offset || 0,
@@ -119,7 +192,7 @@ export class GameService {
       where: { isFree: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -129,7 +202,7 @@ export class GameService {
       where: { discountPercent: { gt: 0 } },
       orderBy: { discountPercent: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -139,7 +212,7 @@ export class GameService {
       where: { storeId: platform },
       orderBy: { discountPercent: 'desc' },
       take: limit,
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
     return offers.map(toListItem);
   }
@@ -150,7 +223,7 @@ export class GameService {
     const offer = await prisma.offer.findFirst({
       where: { game: { title } },
       include: {
-        game: true,
+        game: { include: { tags: true } },
         priceHistory: {
           orderBy: { createdAt: 'desc' },
         },
@@ -158,6 +231,28 @@ export class GameService {
     });
 
     return offer ? toListItem(offer) : null;
+  }
+
+  /**
+   * Игра целиком: все предложения магазинов и полная история цен по каждому.
+   * Запрос идёт от Game, а не от Offer, — иначе одна игра в трёх магазинах
+   * выглядела бы как три разные записи, как в списочных методах.
+   */
+  async getBySlug(slug: string): Promise<GameDetail | null> {
+    const game = await prisma.game.findUnique({
+      where: { slug },
+      include: {
+        tags: true,
+        offers: {
+          include: { store: true, priceHistory: { orderBy: { createdAt: 'desc' } } },
+          // Сначала самое дешёвое предложение, офферы без цены — в конец.
+          // Второй ключ обязателен: при равных ценах порядок иначе плавает.
+          orderBy: [{ currentPriceRub: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+        },
+      },
+    });
+
+    return game ? toGameDetail(game) : null;
   }
 
   async getStats(): Promise<StatsResponse> {
@@ -295,7 +390,7 @@ export class GameService {
     // кириллицу фильтруем в JS — иначе «ВЕДЬМАК» не находит «Ведьмак».
     const offers = await prisma.offer.findMany({
       orderBy: { discountPercent: 'desc' },
-      include: { game: true },
+      include: { game: { include: { tags: true } } },
     });
 
     return offers

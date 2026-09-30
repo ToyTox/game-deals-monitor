@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
-import { prisma, resetDb, seedOffer, type OfferSeed } from '../helpers/db.js';
+import { prisma, resetDb, seedManyOffers, seedOffer, type OfferSeed } from '../helpers/db.js';
 
 // Роуты игр ходят в реальную базу; мокаем только parserService — он лезет в сеть.
 // Форма мока с default обязательна: роутеры импортируют готовый экземпляр.
@@ -105,6 +105,18 @@ describe('GET /api/games', () => {
     const res = await request(app).get('/api/games?limit=abc').expect(200);
 
     expect(res.body.limit).toBe(100);
+  });
+
+  // Страница больше тысячи записей раньше отдавала 500: история цен грузилась
+  // одним запросом с параметром на каждый оффер, а SQLite принимает их не
+  // больше 999. Потолка у limit нет, так что ручка обязана отвечать и здесь.
+  it('отдаёт страницу больше тысячи записей', async () => {
+    await seedManyOffers(1100);
+
+    const res = await request(app).get('/api/games?limit=1100').expect(200);
+
+    expect(res.body.games).toHaveLength(1100);
+    expect(res.body.total).toBe(1100);
   });
 
   // parseInt('abc') даёт NaN, и он доходит до Prisma как skip. Проверено:
@@ -227,6 +239,35 @@ describe('GET /api/games/:title', () => {
       .expect(200);
 
     expect(res.body.title).toBe('Казино с друзьями');
+  });
+});
+
+describe('GET /api/games/slug/:slug', () => {
+  beforeEach(resetDb);
+
+  it('отдаёт игру со всеми предложениями', async () => {
+    await seedGame('The Witcher 3', { platform: 'steam' });
+    await seedGame('The Witcher 3', { platform: 'gog' });
+
+    const res = await request(app).get('/api/games/slug/the-witcher-3').expect(200);
+
+    expect(res.body.title).toBe('The Witcher 3');
+    expect(res.body.offers).toHaveLength(2);
+  });
+
+  it('на неизвестный slug отдаёт 404', async () => {
+    const res = await request(app).get('/api/games/slug/unknown-game').expect(404);
+
+    expect(res.body.error).toBe('Игра не найдена');
+  });
+
+  it('не перехватывается роутом по названию', async () => {
+    await seedGame('Hollow Knight');
+
+    const res = await request(app).get('/api/games/slug/hollow-knight').expect(200);
+
+    expect(Array.isArray(res.body.offers)).toBe(true);
+    expect(res.body.platform).toBeUndefined();
   });
 });
 

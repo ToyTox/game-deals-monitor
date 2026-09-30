@@ -148,6 +148,30 @@ router.get("/search", async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/games/slug/:slug
+ * Игра целиком: предложения всех магазинов и полная история цен по каждому.
+ * Объявлен выше /:title, чтобы порядок разбора путей читался однозначно.
+ */
+router.get("/slug/:slug", async (req: Request, res: Response) => {
+  try {
+    const game = await gameService.getBySlug(req.params.slug);
+
+    if (!game) {
+      return res.status(404).json({
+        error: "Игра не найдена",
+      });
+    }
+
+    res.json(game);
+  } catch (error) {
+    res.status(500).json({
+      error: "Ошибка при получении игры",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
  * GET /api/games/:title
  * Получить одну игру и ее историю цен
  */

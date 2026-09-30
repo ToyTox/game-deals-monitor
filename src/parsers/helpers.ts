@@ -1,4 +1,4 @@
-import { GameKind, ParsedGame } from '../types.js';
+import { GameKind, ParsedGame, ParsedTag } from '../types.js';
 import { normalizeTitle } from '../lib/titleNormalizer.js';
 
 // \b в JS-регулярках не знает кириллицу, поэтому границы слова задаём через \p{L}\p{N}.
@@ -83,4 +83,32 @@ export function parseMoscowDate(raw?: string): Date | undefined {
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Сколько тегов оставлять на карточке. */
+export const MAX_TAGS = 6;
+
+/** Теги магазина -> ParsedTag. slug строится из названия: у магазинов ключи разные, склеиваем теги по имени. */
+export function normalizeTags(
+  raw: Array<{ name?: string | null }> | undefined | null
+): ParsedTag[] {
+  if (!raw || !Array.isArray(raw)) return [];
+
+  const seen = new Set<string>();
+  const result: ParsedTag[] = [];
+
+  for (const item of raw) {
+    const name = item.name?.trim();
+    if (!name) continue;
+
+    const slug = name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+    if (!slug || seen.has(slug)) continue;
+
+    seen.add(slug);
+    result.push({ slug, name });
+
+    if (result.length >= MAX_TAGS) break;
+  }
+
+  return result;
 }

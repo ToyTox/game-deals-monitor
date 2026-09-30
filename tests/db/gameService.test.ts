@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import gameService from '../../src/services/gameService.js';
-import { prisma, resetDb, seedOffer, type OfferSeed } from '../helpers/db.js';
+import { prisma, resetDb, seedManyOffers, seedOffer, type OfferSeed } from '../helpers/db.js';
 
 async function seedGame(seed: OfferSeed) {
   return seedOffer(seed);
@@ -185,6 +185,24 @@ describe('GameService', () => {
       expect((await gameService.getGames({ minDiscount: NaN })).total).toBe(1);
     });
 
+    /**
+     * SQLite принимает не больше 999 параметров в запросе, а историю цен
+     * Prisma грузила одним `offerId IN (?, …)` на всю страницу, поэтому
+     * getGames падал уже на 998 записях. Страница здесь заведомо больше
+     * тысячи: на меньшей тест проходил и до починки.
+     */
+    it('отдаёт страницу больше тысячи записей и подмешивает историю в каждую', async () => {
+      const offerIds = await seedManyOffers(1200);
+      const last = offerIds[offerIds.length - 1];
+      await prisma.priceHistory.create({ data: { offerId: last, oldPrice: 100, newPrice: 90 } });
+
+      const result = await gameService.getGames({ limit: 1200, sort: 'newest' });
+
+      expect(result.games).toHaveLength(1200);
+      // История приезжает из второго чанка — значит id не перепутались при склейке.
+      expect(result.games.find((g) => g.id === last)?.priceHistory).toHaveLength(1);
+    });
+
     // Зафиксировано текущее поведение: `filter?.limit || 100` превращает ноль
     // в сотню. Ответ при этом самосогласован — поле limit тоже сообщает 100.
     it('limit=0 подменяется на 100', async () => {
@@ -281,6 +299,69 @@ describe('GameService', () => {
 
       expect(found).not.toBeNull();
       expect(['steam', 'gog']).toContain(found?.platform);
+    });
+  });
+
+  describe('getBySlug', () => {
+    it('собирает предложения всех магазинов в одну запись', async () => {
+      await seedGame({ title: 'Quantum Break', platform: 'steam', currentPrice: 700 });
+      await seedGame({ title: 'Quantum Break', platform: 'gog', currentPrice: 500 });
+      await seedGame({ title: 'Quantum Break', platform: 'vkplay', currentPrice: null });
+
+      const found = await gameService.getBySlug('quantum-break');
+
+      expect(found).not.toBeNull();
+      expect(found?.offers).toHaveLength(3);
+      expect(found?.offers.map((o) => o.platform)).toEqual(['gog', 'steam', 'vkplay']);
+    });
+
+    it('отдаёт название магазина и его тип', async () => {
+      await seedGame({ title: 'Portal 2', platform: 'steam' });
+
+      const found = await gameService.getBySlug('portal-2');
+
+      expect(found?.offers[0]).toMatchObject({
+        storeName: 'steam',
+        storeKind: 'official',
+      });
+    });
+
+    it('отдаёт историю цен целиком, а не последние пять', async () => {
+      const offer = await seedGame({ title: 'Deus Ex' });
+      for (let i = 0; i < 7; i++) {
+        await prisma.priceHistory.create({
+          data: { offerId: offer.id, oldPrice: 100 + i, newPrice: 90 + i },
+        });
+      }
+
+      const found = await gameService.getBySlug('deus-ex');
+
+      expect(found?.offers[0].priceHistory).toHaveLength(7);
+    });
+
+    it('отдаёт теги игры', async () => {
+      const offer = await seedGame({ title: 'Bioshock' });
+      const game = await prisma.game.findUnique({ where: { id: offer.gameId } });
+      await prisma.game.update({
+        where: { id: game!.id },
+        data: {
+          tags: {
+            create: [
+              { slug: 'fps', name: 'FPS' },
+              { slug: 'scifi', name: 'Sci-Fi' },
+            ],
+          },
+        },
+      });
+
+      const found = await gameService.getBySlug('bioshock');
+
+      expect(found?.tags).toHaveLength(2);
+      expect(found?.tags.map((t) => t.name)).toEqual(expect.arrayContaining(['FPS', 'Sci-Fi']));
+    });
+
+    it('на неизвестный slug отдаёт null', async () => {
+      expect(await gameService.getBySlug('nonexistent-game-slug')).toBeNull();
     });
   });
 
