@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import gamesRouter from './routes/games.js';
 import adminRouter from './routes/admin.js';
 import wishlistRouter from './routes/wishlist.js';
+import priceDynamicsRouter from './routes/priceDynamics.js';
 
 // Статика лежит в корне проекта: src/ (tsx) и dist/ (node) — оба на уровень ниже
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -32,6 +33,7 @@ export function createApp(): express.Express {
   app.use('/api/games', gamesRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/wishlist', wishlistRouter);
+  app.use('/api/price-dynamics', priceDynamicsRouter);
 
   // Root endpoint
   app.get('/api', (req, res) => {
@@ -49,6 +51,8 @@ export function createApp(): express.Express {
         singleGame: '/api/games/:title',
         gameBySlug: '/api/games/slug/:slug',
         wishlist: '/api/wishlist?user=<SteamID|ссылка|ник>',
+        priceDynamicsStatus: '/api/price-dynamics/status',
+        priceDynamics: '/api/price-dynamics?store=<steam|gog|epic>&appId=<id>|title=<name>',
         stats: '/api/admin/stats',
         updates: '/api/admin/updates',
         manualParse: '/api/admin/parse (POST)',

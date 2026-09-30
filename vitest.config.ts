@@ -35,6 +35,8 @@ export default defineConfig({
       VKPLAY_CONCURRENCY: '3',
       VKPLAY_RETRY_DELAY: '0',
       RUN_ON_STARTUP: 'false',
+      ITAD_API_KEY: '',
+      ITAD_COUNTRY: 'RU',
     },
 
     restoreMocks: true,

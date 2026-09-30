@@ -1207,8 +1207,201 @@ summary:hover {
   overflow-y: auto;
 }
 
+/* ---- ITAD Banner (Динамика цены) ---- */
+.itad-banner {
+  background-color: var(--warning-soft);
+  border-bottom: 2px solid var(--warning);
+  padding: 1.5rem 2rem;
+  margin: 0;
+}
+
+.itad-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.itad-banner p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.itad-banner p:first-child {
+  margin-top: 0;
+}
+
+.itad-banner .small {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.itad-banner code {
+  background-color: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.itad-banner .btn-primary {
+  display: inline-block;
+  background-color: var(--warning);
+  color: #000;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  margin: 0.5rem 0;
+  transition: opacity 0.2s;
+}
+
+.itad-banner .btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* ---- Кнопка Динамика цены ---- */
+.btn-price-dynamics {
+  background-color: var(--accent);
+  color: var(--btn-text);
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 0.5rem;
+  display: block;
+}
+
+.btn-price-dynamics:hover {
+  opacity: 0.9;
+}
+
+.btn-price-dynamics:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Блок Динамики цены ---- */
+.card-dynamics {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
+}
+
+.card-dynamics[hidden] {
+  display: none;
+}
+
+.dynamics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dynamics-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted);
+}
+
+.dynamics-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.dynamics-no-data {
+  color: var(--warning);
+}
+
+/* Ступенчатый граф для динамики цены */
+.dynamics-graph {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.dynamics-graph svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Таблица периодов */
+.dynamics-periods {
+  overflow-x: auto;
+}
+
+.periods-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.periods-table th,
+.periods-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.periods-table th {
+  background-color: var(--panel);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.periods-table tbody tr:nth-child(even) {
+  background-color: var(--table-stripe);
+}
+
+.periods-table tbody tr:hover {
+  background-color: var(--table-hover);
+}
+
+.price-up {
+  color: var(--danger);
+}
+
+.price-down {
+  color: var(--success);
+}
+
+.dynamics-lowest {
+  font-size: 0.95rem;
+  color: var(--text);
+  margin: 0.5rem 0;
+}
+
+.dynamics-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 1rem 0 0;
+  text-align: center;
+}
+
 /* Mobile Responsive */
 @media (max-width: 640px) {
+  .itad-banner {
+    padding: 1rem;
+  }
+
+  .itad-banner-content {
+    font-size: 0.9rem;
+  }
+
+  .btn-price-dynamics {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
+  .periods-table {
+    font-size: 0.8rem;
+  }
+
+  .periods-table th,
+  .periods-table td {
+    padding: 0.5rem;
+  }
   main {
     padding: 1rem;
   }

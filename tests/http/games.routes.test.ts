@@ -308,4 +308,11 @@ describe('статика и корневой эндпоинт', () => {
     expect(res.body).toMatchObject({ name: 'Game Deals Monitor API' });
     expect(res.body.endpoints).toHaveProperty('health', '/api/admin/health');
   });
+
+  it('включает новые эндпоинты динамики цен в справочник', async () => {
+    const res = await request(app).get('/api').expect(200);
+
+    expect(res.body.endpoints).toHaveProperty('priceDynamicsStatus', '/api/price-dynamics/status');
+    expect(res.body.endpoints).toHaveProperty('priceDynamics');
+  });
 });

@@ -56,6 +56,9 @@ function esc(s) {
 // Бейджи для всего, что не полноценная игра (ключи — GAME_KINDS из src/types.ts)
 const KIND_LABELS = { demo: 'Демо', dlc: 'DLC', kit: 'Kit' };
 
+// Статус ITAD (заполняется в app.js до отрисовки карточек)
+let itadStatus = null;
+
 // Отрисовка карточек в произвольную сетку
 function renderCards(grid, games, expanded = false) {
   grid.innerHTML = games.map(game => {
@@ -107,12 +110,27 @@ function renderCards(grid, games, expanded = false) {
         </details>`
       : '';
 
+<<<<<<< Updated upstream
     // Заголовок ведёт на страницу игры, но у позиций вишлиста нет записи в базе
     // (и slug'а) — там он остаётся прямой ссылкой в магазин, без дубля ниже.
     const titleHtml = game.slug
       ? `<h3><a href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
          <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
       : `<h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
+=======
+    // Кнопка динамики цены для Steam, GOG и Epic: рисуется, только если ITAD включён.
+    // appid — из вишлиста или ссылки на игру; без него запрос уходит по названию
+    const dynamicsAppId = game.appId ? String(game.appId) : (game.gameUrl?.match(/\/app\/(\d+)/)?.[1] || '');
+    const priceDynamicsBtn = (itadStatus?.enabled && (game.platform === 'steam' || game.platform === 'gog' || game.platform === 'epic'))
+      ? `<button class="btn-price-dynamics" type="button" data-platform="${esc(game.platform)}" data-app-id="${esc(dynamicsAppId)}" data-title="${esc(game.title)}">📊 Динамика цены</button>`
+      : '';
+
+    const priceDynamicsBlock = `<div class="card-dynamics" hidden>
+      <div class="dynamics-content">
+        <div class="dynamics-state">Загрузка…</div>
+      </div>
+    </div>`;
+>>>>>>> Stashed changes
 
     // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем
     const metaHtml = game.id === undefined
@@ -128,9 +146,14 @@ function renderCards(grid, games, expanded = false) {
           ${priceHtml}
           ${saleEndDateHtml}
           ${descHtml}
+<<<<<<< Updated upstream
           ${tagsHtml}
+=======
+          ${priceDynamicsBtn}
+>>>>>>> Stashed changes
           ${metaHtml}
           ${historyHtml}
+          ${priceDynamicsBlock}
         </div>
       </article>
     `;
