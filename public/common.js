@@ -110,14 +110,6 @@ function renderCards(grid, games, expanded = false) {
         </details>`
       : '';
 
-<<<<<<< Updated upstream
-    // Заголовок ведёт на страницу игры, но у позиций вишлиста нет записи в базе
-    // (и slug'а) — там он остаётся прямой ссылкой в магазин, без дубля ниже.
-    const titleHtml = game.slug
-      ? `<h3><a href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
-         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
-      : `<h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
-=======
     // Кнопка динамики цены для Steam, GOG и Epic: рисуется, только если ITAD включён.
     // appid — из вишлиста или ссылки на игру; без него запрос уходит по названию
     const dynamicsAppId = game.appId ? String(game.appId) : (game.gameUrl?.match(/\/app\/(\d+)/)?.[1] || '');
@@ -130,7 +122,6 @@ function renderCards(grid, games, expanded = false) {
         <div class="dynamics-state">Загрузка…</div>
       </div>
     </div>`;
->>>>>>> Stashed changes
 
     // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем
     const metaHtml = game.id === undefined
@@ -146,11 +137,8 @@ function renderCards(grid, games, expanded = false) {
           ${priceHtml}
           ${saleEndDateHtml}
           ${descHtml}
-<<<<<<< Updated upstream
           ${tagsHtml}
-=======
           ${priceDynamicsBtn}
->>>>>>> Stashed changes
           ${metaHtml}
           ${historyHtml}
           ${priceDynamicsBlock}
