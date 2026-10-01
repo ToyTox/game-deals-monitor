@@ -722,19 +722,13 @@ document.addEventListener('click', async (e) => {
   const state = dynamics.querySelector('.dynamics-state');
   const content = dynamics.querySelector('.dynamics-content');
 
-  // Проверяем, загружены ли данные: если в content есть содержимое, значит успешно загрузили
+  // Признак «загружено» хранится на блоке явно и не зависит от разметки
   const isOpen = !dynamics.hidden;
-  const hasData = content.innerHTML.trim().length > 0;
+  const isLoaded = dynamics.dataset.loaded === '1';
 
-  // Если блок открыт и данные загружены — сворачиваем без запроса
-  if (isOpen && hasData) {
-    dynamics.hidden = true;
-    return;
-  }
-
-  // Если блок свёрнут и данные загружены — раскрываем без запроса
-  if (!isOpen && hasData) {
-    dynamics.hidden = false;
+  // Данные загружены — сворачиваем/раскрываем без запроса
+  if (isLoaded) {
+    dynamics.hidden = isOpen;
     return;
   }
 
@@ -745,6 +739,7 @@ document.addEventListener('click', async (e) => {
   state.hidden = false;
   content.innerHTML = '';
   dynamics.hidden = false;
+  dynamics.dataset.loaded = '';
 
   try {
     const platform = btn.dataset.platform;
@@ -756,9 +751,10 @@ document.addEventListener('click', async (e) => {
     const dynamicsData = await api(`/api/price-dynamics?${params.toString()}`);
     renderPriceDynamics(dynamics, dynamicsData);
   } catch (err) {
-    state.className = 'dynamics-error';
+    state.className = 'dynamics-state dynamics-error';
     state.textContent = err.message;
     state.hidden = false;
+    content.innerHTML = '';
   } finally {
     btn.disabled = false;
   }
@@ -769,8 +765,13 @@ function renderPriceDynamics(container, data) {
   const content = container.querySelector('.dynamics-content');
 
   if (!data.graphPoints || data.graphPoints.length === 0) {
-    state.className = 'dynamics-no-data';
-    state.textContent = `Нет данных по цене для региона ${data.country}`;
+    if (content) content.innerHTML = '';
+    if (state) {
+      state.className = 'dynamics-state dynamics-no-data';
+      state.textContent = `Нет данных по цене для региона ${data.country}`;
+      state.hidden = false;
+    }
+    container.dataset.loaded = '1';
     return;
   }
 
@@ -819,8 +820,9 @@ function renderPriceDynamics(container, data) {
     ? `<p class="dynamics-lowest">Исторический минимум: <strong>${esc(fmtPrice(data.allTimeLowest.price, data.currency))}</strong> (${esc(fmtDate(new Date(data.allTimeLowest.timestamp).getTime()))})</p>`
     : '';
 
-  state.hidden = true;
-  content.innerHTML = `${graphHtml}${periodsHtml}${lowestHtml}<p class="dynamics-meta">Регион: ${esc(data.country)}, валюта: ${esc(data.currency || '—')}</p>`;
+  if (state) state.hidden = true;
+  if (content) content.innerHTML = `${graphHtml}${periodsHtml}${lowestHtml}<p class="dynamics-meta">Регион: ${esc(data.country)}, валюта: ${esc(data.currency || '—')}</p>`;
+  container.dataset.loaded = '1';
 }
 
 function renderPriceGraph(graphPoints, currency) {

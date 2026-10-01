@@ -38,7 +38,7 @@
     "gameBySlug": "/api/games/slug/:slug",
     "wishlist": "/api/wishlist?user=<SteamID|ссылка|ник>",
     "priceDynamicsStatus": "/api/price-dynamics/status",
-    "priceDynamics": "/api/price-dynamics?store=<steam|gog|epic>&appId=<id>|title=<name>",
+    "priceDynamics": "/api/price-dynamics?store=<steam|gog|epic>&title=<name>[&appId=<id>]",
     "stats": "/api/admin/stats",
     "updates": "/api/admin/updates",
     "manualParse": "/api/admin/parse (POST)",

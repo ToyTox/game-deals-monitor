@@ -118,9 +118,8 @@ function renderCards(grid, games, expanded = false) {
       : '';
 
     const priceDynamicsBlock = `<div class="card-dynamics" hidden>
-      <div class="dynamics-content">
-        <div class="dynamics-state">Загрузка…</div>
-      </div>
+      <div class="dynamics-state">Загрузка…</div>
+      <div class="dynamics-content"></div>
     </div>`;
 
     // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем

@@ -314,5 +314,7 @@ describe('статика и корневой эндпоинт', () => {
 
     expect(res.body.endpoints).toHaveProperty('priceDynamicsStatus', '/api/price-dynamics/status');
     expect(res.body.endpoints).toHaveProperty('priceDynamics');
+    expect(res.body.endpoints.priceDynamics).toContain('title');
+    expect(res.body.endpoints.priceDynamics).not.toContain('|title');
   });
 });
