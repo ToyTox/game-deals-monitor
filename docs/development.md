@@ -64,10 +64,16 @@ game-deals-monitor/
 │   │   └── vkPlayParsers.ts
 │   ├── routes/
 │   │   ├── games.ts         # /api/games/*
-│   │   └── admin.ts         # /api/admin/*
+│   │   ├── admin.ts         # /api/admin/*
+│   │   ├── wishlist.ts       # /api/wishlist
+│   │   └── priceDynamics.ts # /api/price-dynamics/* (динамика цены через ITAD)
 │   └── services/
 │       ├── parserService.ts # оркестрация парсеров
-│       └── gameService.ts   # выборки, статистика, поиск
+│       ├── gameService.ts   # выборки, статистика, поиск
+│       ├── steamWishlistService.ts # вишлист Steam
+│       ├── itadService.ts   # динамика цены (IsThereAnyDeal API)
+│       ├── currencyService.ts # конвертация валют
+│       └── index.ts         # версия API
 ├── tests/
 │   ├── unit/                # парсеры на фикстурах
 │   ├── startup/             # startServer(): порядок старта, занятый порт

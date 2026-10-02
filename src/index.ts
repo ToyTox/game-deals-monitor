@@ -5,9 +5,18 @@ import prisma from './database.js';
 import { createApp } from './app.js';
 import { startServer } from './server.js';
 import parserService from './services/parserService.js';
+import itadService from './services/itadService.js';
 
 const app = createApp();
 const PORT = Number.parseInt(process.env.PORT ?? '', 10) || 3000;
+
+// Check ITAD API key on startup
+if (!itadService.isFunctionEnabled()) {
+  console.log(
+    '⚠️  ITAD API key is not configured. Price dynamics feature is disabled.\n' +
+    '   Register your key at https://isthereanydeal.com/apps/my/ and add it to .env as ITAD_API_KEY'
+  );
+}
 
 // Scheduler - запуск парсеров по расписанию
 const cronSchedule = process.env.CRON_SCHEDULE || '0 6 * * *';

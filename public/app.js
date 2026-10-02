@@ -712,12 +712,238 @@ $('refresh-all').addEventListener('click', async () => {
   }
 });
 
+// ---- Динамика цены через ITAD ----
+document.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('btn-price-dynamics')) return;
+
+  const btn = e.target;
+  const card = btn.closest('.card');
+  const dynamics = card.querySelector('.card-dynamics');
+  const state = dynamics.querySelector('.dynamics-state');
+  const content = dynamics.querySelector('.dynamics-content');
+
+  // Признак «загружено» хранится на блоке явно и не зависит от разметки
+  const isOpen = !dynamics.hidden;
+  const isLoaded = dynamics.dataset.loaded === '1';
+
+  // Данные загружены — сворачиваем/раскрываем без запроса
+  if (isLoaded) {
+    dynamics.hidden = isOpen;
+    return;
+  }
+
+  // Нет данных (первый клик или после ошибки) — загружаем
+  btn.disabled = true;
+  state.className = 'dynamics-state';
+  state.textContent = 'Загрузка…';
+  state.hidden = false;
+  content.innerHTML = '';
+  dynamics.hidden = false;
+  dynamics.dataset.loaded = '';
+
+  try {
+    const platform = btn.dataset.platform;
+    const params = new URLSearchParams({ store: platform, title: btn.dataset.title });
+    if (btn.dataset.appId) {
+      params.append('appId', btn.dataset.appId);
+    }
+
+    const dynamicsData = await api(`/api/price-dynamics?${params.toString()}`);
+    renderPriceDynamics(dynamics, dynamicsData);
+  } catch (err) {
+    state.className = 'dynamics-state dynamics-error';
+    state.textContent = err.message;
+    state.hidden = false;
+    content.innerHTML = '';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderPriceDynamics(container, data) {
+  const state = container.querySelector('.dynamics-state');
+  const content = container.querySelector('.dynamics-content');
+
+  if (!data.graphPoints || data.graphPoints.length === 0) {
+    if (content) content.innerHTML = '';
+    if (state) {
+      state.className = 'dynamics-state dynamics-no-data';
+      state.textContent = `Нет данных по цене для региона ${data.country}`;
+      state.hidden = false;
+    }
+    container.dataset.loaded = '1';
+    return;
+  }
+
+  // График за 180 дней
+  const graphHtml = renderPriceGraph(data.graphPoints, data.currency);
+
+  // Таблица периодов
+  const periodsHtml = `
+    <div class="dynamics-periods">
+      <table class="periods-table">
+        <thead>
+          <tr><th>Период</th><th>Цена</th><th>Изменение</th><th>Минимум</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>День</td>
+            <td>${esc(fmtPrice(data.periods.day.price, data.currency))}</td>
+            <td class="${data.periods.day.change > 0 ? 'price-up' : data.periods.day.change < 0 ? 'price-down' : ''}">${data.periods.day.change !== null ? (data.periods.day.change > 0 ? '+' : '') + data.periods.day.change + '%' : '—'}</td>
+            <td>${esc(fmtPrice(data.periods.day.lowest, data.currency))}</td>
+          </tr>
+          <tr>
+            <td>Неделя</td>
+            <td>${esc(fmtPrice(data.periods.week.price, data.currency))}</td>
+            <td class="${data.periods.week.change > 0 ? 'price-up' : data.periods.week.change < 0 ? 'price-down' : ''}">${data.periods.week.change !== null ? (data.periods.week.change > 0 ? '+' : '') + data.periods.week.change + '%' : '—'}</td>
+            <td>${esc(fmtPrice(data.periods.week.lowest, data.currency))}</td>
+          </tr>
+          <tr>
+            <td>Месяц</td>
+            <td>${esc(fmtPrice(data.periods.month.price, data.currency))}</td>
+            <td class="${data.periods.month.change > 0 ? 'price-up' : data.periods.month.change < 0 ? 'price-down' : ''}">${data.periods.month.change !== null ? (data.periods.month.change > 0 ? '+' : '') + data.periods.month.change + '%' : '—'}</td>
+            <td>${esc(fmtPrice(data.periods.month.lowest, data.currency))}</td>
+          </tr>
+          <tr>
+            <td>Полгода</td>
+            <td>${esc(fmtPrice(data.periods.half_year.price, data.currency))}</td>
+            <td class="${data.periods.half_year.change > 0 ? 'price-up' : data.periods.half_year.change < 0 ? 'price-down' : ''}">${data.periods.half_year.change !== null ? (data.periods.half_year.change > 0 ? '+' : '') + data.periods.half_year.change + '%' : '—'}</td>
+            <td>${esc(fmtPrice(data.periods.half_year.lowest, data.currency))}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // Исторический минимум
+  const lowestHtml = data.allTimeLowest
+    ? `<p class="dynamics-lowest">Исторический минимум: <strong>${esc(fmtPrice(data.allTimeLowest.price, data.currency))}</strong> (${esc(fmtDate(new Date(data.allTimeLowest.timestamp).getTime()))})</p>`
+    : '';
+
+  if (state) state.hidden = true;
+  if (content) content.innerHTML = `${graphHtml}${periodsHtml}${lowestHtml}<p class="dynamics-meta">Регион: ${esc(data.country)}, валюта: ${esc(data.currency || '—')}</p>`;
+  container.dataset.loaded = '1';
+}
+
+function renderPriceGraph(graphPoints, currency) {
+  if (!graphPoints || graphPoints.length === 0) return '';
+
+  // Получить цены
+  const prices = graphPoints
+    .map(p => p.price)
+    .filter(p => p !== null && p !== undefined);
+
+  if (prices.length === 0) return '';
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const range = maxPrice - minPrice || 1;
+
+  const width = 400;
+  const height = 200;
+  const padding = { top: 30, bottom: 40, left: 50, right: 20 };
+  const graphWidth = width - padding.left - padding.right;
+  const graphHeight = height - padding.top - padding.bottom;
+
+  // X — по времени на отрезке «сейчас минус 180 дней … сейчас»
+  const windowEnd = Date.now();
+  const windowStart = windowEnd - 180 * 24 * 60 * 60 * 1000;
+  const xAt = (t) => padding.left + ((Math.min(Math.max(t, windowStart), windowEnd) - windowStart) / (windowEnd - windowStart)) * graphWidth;
+
+  const points = graphPoints.map((point) => {
+    const price = point.price ?? 0;
+    const y = height - padding.bottom - ((price - minPrice) / range) * graphHeight;
+    return { x: xAt(new Date(point.timestamp).getTime()), y, price, timestamp: point.timestamp };
+  });
+
+  // Ступенчатая линия: горизонталь до времени следующей точки, затем вертикаль
+  let pathData = '';
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0) {
+      pathData += `M ${points[i].x} ${points[i].y}`;
+    } else {
+      pathData += ` L ${points[i].x} ${points[i - 1].y} L ${points[i].x} ${points[i].y}`;
+    }
+  }
+
+  // Построить контур для заливки
+  let fillPath = pathData;
+  if (points.length > 0) {
+    fillPath += ` L ${points[points.length - 1].x} ${height - padding.bottom}`;
+    fillPath += ` L ${points[0].x} ${height - padding.bottom}`;
+    fillPath += ' Z';
+  }
+
+  // Уникальный ID для градиента
+  const gradId = `grad-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Подписи по краям отрезка
+  const startDate = new Date(windowStart);
+  const endDate = new Date(windowEnd);
+
+  return `
+    <div class="dynamics-graph">
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <defs>
+          <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.2" />
+            <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0.05" />
+          </linearGradient>
+        </defs>
+
+        <!-- Сетка временных отметок -->
+        <text x="${padding.left}" y="15" font-size="10" fill="var(--muted)">полгода назад</text>
+        <text x="${width - padding.right}" y="15" font-size="10" fill="var(--muted)" text-anchor="end">сегодня</text>
+
+        <!-- Графики и подписи осей -->
+        <text x="10" y="${padding.top + 8}" font-size="11" fill="var(--muted)" text-anchor="middle">
+          ${esc(fmtPrice(maxPrice, currency))}
+        </text>
+        <text x="10" y="${height - padding.bottom + 20}" font-size="11" fill="var(--muted)" text-anchor="middle">
+          ${esc(fmtPrice(minPrice, currency))}
+        </text>
+
+        <!-- Дата начала -->
+        <text x="${padding.left}" y="${height - 8}" font-size="9" fill="var(--muted)">
+          ${startDate.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })}
+        </text>
+
+        <!-- Дата конца -->
+        <text x="${width - padding.right}" y="${height - 8}" font-size="9" fill="var(--muted)" text-anchor="end">
+          ${endDate.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })}
+        </text>
+
+        <!-- Область графика -->
+        <path d="${fillPath}" fill="url(#${gradId})" />
+        <path d="${pathData}" stroke="var(--accent)" stroke-width="2" fill="none" />
+      </svg>
+    </div>
+  `;
+}
+
+// ---- Проверка статуса ITAD и показ баннера ----
+async function loadItadStatus() {
+  try {
+    itadStatus = await api('/api/price-dynamics/status');
+    if (!itadStatus.enabled) {
+      $('itad-banner').hidden = false;
+    }
+  } catch (err) {
+    // Ошибка запроса: показать баннер
+    $('itad-banner').hidden = false;
+  }
+}
+
 // Init on load (скрипт с defer — DOM уже разобран)
 (async () => {
   restoreFilters();
   // Сортировка видна сразу, даже если список платформ не загрузится
   Object.keys(sections).forEach(key => renderFilters(key));
   initWishlist();
+
+  // Загрузить статус ITAD до отрисовки карточек
+  await loadItadStatus();
+
   await reloadAll();
   markRefreshed();
 })();
