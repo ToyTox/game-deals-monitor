@@ -55,22 +55,10 @@
   <div id="profile-bg" class="profile-bg" aria-hidden="true" hidden></div>
 
   <main>
-    <!-- Statistics Section -->
-    <section class="stats-section">
-      <h2>Статистика</h2>
-      <div id="stats-tiles" class="stats-tiles"></div>
-      <div id="stats-platforms" class="stats-platforms"></div>
-      <div id="stats-top" class="stats-top"></div>
-      <div class="stats-actions">
-        <button id="btn-stats">Обновить статистику</button>
-        <button id="btn-health">Проверить health</button>
-      </div>
-    </section>
-
     <!-- Wishlist Section -->
     <section class="catalog-section" id="section-wishlist">
       <div class="section-head">
-        <h2>⭐ Мой список желаемого</h2>
+        <h2><button type="button" class="section-toggle" aria-expanded="true">⭐ Мой список желаемого</button></h2>
         <div class="section-meta" id="wishlist-meta"></div>
       </div>
       <form id="wishlist-form" class="wishlist-form">
@@ -91,7 +79,7 @@
     <!-- Free Games Section -->
     <section class="catalog-section" id="section-free">
       <div class="section-head">
-        <h2>🎁 Бесплатные игры</h2>
+        <h2><button type="button" class="section-toggle" aria-expanded="true">🎁 Бесплатные игры</button></h2>
         <div class="section-meta" id="free-meta"></div>
       </div>
       <div id="free-filters" class="section-filters"></div>
@@ -103,7 +91,7 @@
     <!-- Discounts Section -->
     <section class="catalog-section" id="section-deals">
       <div class="section-head">
-        <h2>🔥 Скидки</h2>
+        <h2><button type="button" class="section-toggle" aria-expanded="true">🔥 Скидки</button></h2>
         <div class="section-meta" id="deals-meta"></div>
       </div>
       <div id="deals-filters" class="section-filters"></div>

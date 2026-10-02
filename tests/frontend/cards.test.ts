@@ -64,3 +64,54 @@ describe('отрисовка карточек', () => {
     }
   }
 });
+
+describe('компактная карточка', () => {
+  it('показывает только первый тег', async () => {
+    const grid = await open('deals', [game({ id: 1, slug: 'g', tags: [{ name: 'RPG' }, { name: 'Indie' }, { name: 'Co-op' }] })], false);
+    const tags = grid.querySelectorAll('.card-tag');
+    expect(tags).toHaveLength(1);
+    expect(tags[0].textContent).toBe('RPG');
+  });
+
+  it('без тегов тег не рисуется', async () => {
+    const grid = await open('deals', [game({ id: 1, slug: 'g' })], false);
+    expect(grid.querySelector('.card-tag')).toBeNull();
+  });
+
+  it('не показывает ID, даты и историю цен', async () => {
+    const grid = await open('deals', [game({
+      id: 7,
+      slug: 'g',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-02T00:00:00Z',
+      priceHistory: [{ createdAt: '2024-01-01T00:00:00Z', oldPrice: 1, newPrice: 2, oldDiscount: 0, newDiscount: 0 }],
+    })], false);
+    const card = grid.querySelector('.card')!;
+    expect(card.querySelector('.card-meta')).toBeNull();
+    expect(card.querySelector('.card-history')).toBeNull();
+    expect(card.textContent).not.toMatch(/ID:|Создано|Обновлено|История цен/);
+  });
+
+  it('вся карточка — одна ссылка, кнопка динамики и магазин не внутри неё', async () => {
+    const grid = await open('deals', [game({ id: 1, slug: 'g' })], true);
+    const card = grid.querySelector('.card')!;
+    expect(card.querySelectorAll('a a')).toHaveLength(0);
+    expect(card.querySelectorAll('a.card-link')).toHaveLength(1);
+    expect(card.querySelector('a.card-link')!.getAttribute('href')).toBe('/game.html?slug=g');
+    expect(card.querySelector('.card-store-link a')!.getAttribute('href')).toBe(game().gameUrl);
+
+    const btn = card.querySelector<HTMLButtonElement>('.btn-price-dynamics')!;
+    expect(btn.closest('a')).toBeNull();
+    const click = new page.window.MouseEvent('click', { bubbles: true, cancelable: true });
+    btn.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(false);
+    expect(page.window.location.href).toBe('http://localhost/');
+  });
+
+  it('позиция без slug ведёт в магазин в новой вкладке', async () => {
+    const grid = await open('wishlist', [game()], false);
+    const link = grid.querySelector('.card a.card-link')!;
+    expect(link.getAttribute('href')).toBe(game().gameUrl);
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+});
