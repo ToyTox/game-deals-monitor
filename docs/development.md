@@ -71,6 +71,7 @@ game-deals-monitor/
 │       ├── parserService.ts # оркестрация парсеров
 │       ├── gameService.ts   # выборки, статистика, поиск
 │       ├── steamWishlistService.ts # вишлист Steam
+│       ├── steamProfileService.ts # аватар и фон профиля Steam
 │       ├── itadService.ts   # динамика цены (IsThereAnyDeal API)
 │       ├── currencyService.ts # конвертация валют
 │       └── index.ts         # версия API
@@ -79,6 +80,7 @@ game-deals-monitor/
 │   ├── startup/             # startServer(): порядок старта, занятый порт
 │   ├── db/                  # saveGames и GameService на реальной SQLite
 │   ├── http/                # роуты через supertest
+│   ├── frontend/            # смоук-тесты public/*.js на jsdom
 │   ├── helpers/             # resetDb(), фикстуры, подмена env
 │   ├── fixtures/            # сохранённые ответы площадок
 │   ├── globalSetup.ts       # поднятие и снос тестовой БД
@@ -96,11 +98,14 @@ game-deals-monitor/
 
 ## Тесты
 
-Тестовый фреймворк — **Vitest**, файлы в `tests/**/*.test.ts`. Сюита разделена на три слоя:
+Тестовый фреймворк — **Vitest**, файлы в `tests/**/*.test.ts`. Сюита разделена на четыре слоя:
 
 - **unit/** — юнит-тесты парсеров на сохранённых фикстурах (файлы в `tests/fixtures/`);
 - **db/** — интеграционные тесты `BaseParser.saveGames()` и `GameService` на реальной SQLite;
-- **http/** — функциональные тесты роутов через `supertest` поверх `createApp()`.
+- **http/** — функциональные тесты роутов через `supertest` поверх `createApp()`;
+- **frontend/** — смоук-тесты скриптов `public/*.js` в jsdom.
+
+Слой `frontend/` остаётся в node-окружении Vitest: хелпер `tests/frontend/page.ts` на каждый тест создаёт отдельный экземпляр `JSDOM` с настоящим `public/index.html` и выполняет `public/common.js` и `public/app.js` как классические скрипты. Сеть подменяется заглушкой `fetch` с ответами по пути запроса и счётчиком вызовов; `matchMedia` и начальный `localStorage` стабятся. Ошибки скриптов (window error, unhandled rejection) собираются в `page.errors` и проверяются в тестах. Слой покрывает отрисовку карточек каталога и вишлиста (со slug и без, с ITAD и без), цикл кнопки «Динамика цены» (загрузка, сворачивание без запросов, ошибка и повтор) и баннер ITAD. `admin.js` и `game.js` не покрыты.
 
 `tests/globalSetup.ts` поднимает отдельную тестовую БД в `.tmp/test.db` перед прогоном сюиты: удаляет старый файл, при отсутствии сгенерированного клиента вызывает `prisma generate`, затем накатывает схему через `prisma migrate deploy` — именно миграциями, а не `db push`, чтобы тесты видели тот же DDL, что и продакшен. После завершения сюиты файл БД удаляется.
 

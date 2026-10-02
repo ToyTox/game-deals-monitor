@@ -18,6 +18,10 @@ const SORT_LABELS = {
 
 // Ключ в localStorage для введённого SteamID
 const WISHLIST_USER_KEY = 'steamWishlistUser';
+// Оформление профиля: храним только URL и SteamID, сами картинки не кэшируем
+const PROFILE_KEY = 'steamProfileDecor';
+// Пользователь убрал оформление кнопкой — не запрашиваем и не применяем, пока не нажмёт «Показать»
+const PROFILE_OPT_OUT_KEY = 'steamProfileDecorOff';
 
 const sections = {
   wishlist: {
@@ -137,6 +141,7 @@ function setWishlistUser(user) {
 }
 
 function clearWishlist() {
+  clearProfileDecor();
   setWishlistUser('');
   $('wishlist-grid').innerHTML = '';
   $('wishlist-meta').textContent = '';
@@ -147,22 +152,238 @@ function clearWishlist() {
   setSectionState('wishlist', 'state-empty', 'Введите SteamID, ссылку на профиль или ник');
 }
 
+// «Забыть»: SteamID, оформление и флаг отказа
+function forgetWishlist() {
+  setProfileOptOut(false);
+  clearWishlist();
+}
+
 function initWishlist() {
   $('wishlist-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const value = $('wishlist-input').value.trim();
     if (!value) return clearWishlist();
+    // Другой пользователь: оформление прежнего убираем сразу, не дожидаясь ответа /profile
+    if (value !== sections.wishlist.user) clearProfileDecor();
+    // Явная отправка формы с вводом снимает отказ от оформления
+    setProfileOptOut(false);
     setWishlistUser(value);
     loadSection('wishlist');
   });
 
-  $('wishlist-clear').addEventListener('click', clearWishlist);
+  $('wishlist-clear').addEventListener('click', forgetWishlist);
+  $('wishlist-decor-off').addEventListener('click', optOutProfileDecor);
+  $('wishlist-avatar').addEventListener('error', () => { $('wishlist-avatar').hidden = true; });
+
+  initProfileBackground();
 
   let saved = '';
   try { saved = localStorage.getItem(WISHLIST_USER_KEY) || ''; } catch (e) {}
 
   if (saved) setWishlistUser(saved);
   else clearWishlist();
+
+  // Сохранённое оформление применяем сразу, без запроса
+  if (!isProfileOptedOut()) applyProfileDecor(readStoredProfile());
+}
+
+// ---- Оформление профиля: аватар и фон ----
+let currentProfile = null;
+// Номер актуального запроса профиля: сброс или смена пользователя обесценивает улетевший ответ
+let profileRequestId = 0;
+let profileRequestFor = '';
+// Неполный сохранённый профиль перезапрашиваем не чаще одного раза за загрузку страницы
+let incompleteRetried = false;
+let bgVideo = null;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function isProfileOptedOut() {
+  try { return localStorage.getItem(PROFILE_OPT_OUT_KEY) === '1'; } catch (e) { return false; }
+}
+
+function setProfileOptOut(value) {
+  try {
+    if (value) localStorage.setItem(PROFILE_OPT_OUT_KEY, '1');
+    else localStorage.removeItem(PROFILE_OPT_OUT_KEY);
+  } catch (e) {}
+}
+
+function isHttpsUrl(url) {
+  if (url === null || url === undefined) return true;
+  return typeof url === 'string' && url.startsWith('https://');
+}
+
+function readStoredProfile() {
+  try {
+    const data = JSON.parse(localStorage.getItem(PROFILE_KEY));
+    if (!data || typeof data.steamId !== 'string') return null;
+    const bg = data.background;
+    if (!isHttpsUrl(data.avatarUrl)) return null;
+    if (bg && !(isHttpsUrl(bg.imageUrl) && isHttpsUrl(bg.videoWebmUrl) && isHttpsUrl(bg.videoMp4Url))) return null;
+    return data;
+  } catch (e) { return null; }
+}
+
+function storeProfile(profile) {
+  try {
+    if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    else localStorage.removeItem(PROFILE_KEY);
+  } catch (e) {}
+}
+
+// Убирает оформление с экрана и из localStorage; флаг отказа не трогает
+function clearProfileDecor() {
+  profileRequestId++;
+  profileRequestFor = '';
+  storeProfile(null);
+  applyProfileDecor(null);
+}
+
+// «Убрать оформление»: данные чистим, отказ запоминаем
+function optOutProfileDecor() {
+  profileRequestId++;
+  profileRequestFor = '';
+  setProfileOptOut(true);
+  storeProfile(null);
+  applyProfileDecor(null);
+}
+
+function applyProfileDecor(profile) {
+  currentProfile = profile;
+  const avatar = $('wishlist-avatar');
+
+  if (profile && profile.avatarUrl) {
+    avatar.src = profile.avatarUrl;
+    avatar.alt = profile.name ? `Аватар ${profile.name}` : 'Аватар профиля Steam';
+    avatar.title = profile.name || '';
+    avatar.hidden = false;
+  } else {
+    avatar.hidden = true;
+    avatar.removeAttribute('src');
+  }
+
+  renderProfileBackground(profile && profile.background);
+  $('wishlist-decor-off').hidden = !(profile && (profile.avatarUrl || profile.background));
+}
+
+function removeBgVideo() {
+  if (!bgVideo) return;
+  bgVideo.pause();
+  bgVideo.remove();
+  bgVideo = null;
+}
+
+function renderProfileBackground(bg) {
+  const layer = $('profile-bg');
+  removeBgVideo();
+
+  if (!bg || !bg.imageUrl) {
+    layer.hidden = true;
+    layer.style.backgroundImage = '';
+    document.body.classList.remove('has-profile-bg');
+    return;
+  }
+
+  layer.style.backgroundImage = `url("${bg.imageUrl}")`;
+  layer.hidden = false;
+  document.body.classList.add('has-profile-bg');
+
+  // При reduced-motion видео не создаём и не грузим — остаётся статичная картинка
+  if (reducedMotion.matches) return;
+
+  const sources = [
+    [bg.videoWebmUrl, 'video/webm'],
+    [bg.videoMp4Url, 'video/mp4']
+  ].filter(([url]) => url);
+  if (sources.length === 0) return;
+
+  const video = document.createElement('video');
+  if (!sources.some(([, type]) => video.canPlayType(type))) return;
+
+  video.className = 'profile-bg-video';
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.controls = false;
+  video.disablePictureInPicture = true;
+  video.tabIndex = -1;
+  // Пока вкладка скрыта или play() не вызван, ничего не качаем
+  video.preload = 'none';
+  video.poster = bg.imageUrl;
+  video.setAttribute('aria-hidden', 'true');
+
+  // Видео поверх картинки появляется только когда реально пошло; сбой всех источников — убираем
+  let failed = 0;
+  sources.forEach(([url, type]) => {
+    const source = document.createElement('source');
+    source.src = url;
+    source.type = type;
+    source.addEventListener('error', () => {
+      if (++failed === sources.length && bgVideo === video) removeBgVideo();
+    });
+    video.appendChild(source);
+  });
+  video.addEventListener('playing', () => video.classList.add('is-playing'));
+
+  layer.appendChild(video);
+  bgVideo = video;
+  if (!document.hidden) video.play().catch(() => {});
+}
+
+function initProfileBackground() {
+  // Скрытая вкладка: пауза, чтобы не жечь батарею
+  document.addEventListener('visibilitychange', () => {
+    if (!bgVideo) return;
+    if (document.hidden) bgVideo.pause();
+    else bgVideo.play().catch(() => {});
+  });
+
+  // Смена настройки без перезагрузки
+  const onChange = () => {
+    if (currentProfile && !isProfileOptedOut()) renderProfileBackground(currentProfile.background);
+  };
+  if (reducedMotion.addEventListener) reducedMotion.addEventListener('change', onChange);
+  else if (reducedMotion.addListener) reducedMotion.addListener(onChange);
+}
+
+// После успешного вишлиста: профиль запрашиваем, только если SteamID новый или данных нет
+async function ensureProfileDecor(steamId) {
+  if (!steamId || isProfileOptedOut()) return;
+
+  const stored = readStoredProfile();
+  if (stored && stored.steamId === steamId) {
+    if (!stored.incomplete || incompleteRetried) return;
+    incompleteRetried = true;
+  }
+  if (profileRequestFor === steamId) return;
+
+  const requestId = ++profileRequestId;
+  profileRequestFor = steamId;
+
+  try {
+    const data = await api('/api/wishlist/profile?' + new URLSearchParams({ steamId }));
+    if (requestId !== profileRequestId || isProfileOptedOut()) return;
+
+    const profile = {
+      steamId,
+      avatarUrl: data.avatarUrl || null,
+      name: data.name || null,
+      background: data.background && data.background.imageUrl ? data.background : null,
+      incomplete: Array.isArray(data.missing) && data.missing.length > 0
+    };
+    storeProfile(profile);
+    applyProfileDecor(profile);
+  } catch (e) {
+    // Ошибка профиля вишлисту не мешает; чужое оформление при этом не оставляем
+    // Неполный профиль того же пользователя при сбое повторного запроса остаётся
+    const keep = readStoredProfile();
+    if (requestId === profileRequestId && !isProfileOptedOut() && !(keep && keep.steamId === steamId)) {
+      storeProfile(null);
+      applyProfileDecor(null);
+    }
+  } finally {
+    if (requestId === profileRequestId) profileRequestFor = '';
+  }
 }
 
 function renderFilters(key) {
@@ -292,6 +513,7 @@ async function loadSection(key) {
     const data = await api(s.buildUrl ? s.buildUrl(s) : '/api/games?' + query.toString());
     if (requestId !== s.requestId) return;
     s.total = data.total;
+    if (key === 'wishlist') ensureProfileDecor(data.steamId);
 
     // Страница могла уехать за границы (например, после парсинга) — вернёмся на последнюю
     const pages = sectionPages(s);
@@ -350,6 +572,37 @@ function loadSections() {
   const keys = Object.keys(sections).filter(key => !sections[key].buildUrl || sections[key].user);
   return Promise.all(keys.map(loadSection));
 }
+
+// ---- Сворачиваемые разделы ----
+// Ключ в localStorage: { wishlist: true, ... } — только свёрнутые
+const COLLAPSED_KEY = 'collapsedSections';
+
+function loadCollapsed() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(COLLAPSED_KEY));
+    return stored && typeof stored === 'object' ? stored : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function setCollapsed(key, collapsed) {
+  $(`section-${key}`).classList.toggle('is-collapsed', collapsed);
+  document.querySelector(`#section-${key} .section-toggle`).setAttribute('aria-expanded', String(!collapsed));
+}
+
+Object.keys(sections).forEach(key => {
+  const toggle = document.querySelector(`#section-${key} .section-toggle`);
+  setCollapsed(key, !!loadCollapsed()[key]);
+
+  toggle.addEventListener('click', () => {
+    const collapsed = toggle.getAttribute('aria-expanded') === 'true';
+    setCollapsed(key, collapsed);
+    const stored = loadCollapsed();
+    if (collapsed) stored[key] = true; else delete stored[key];
+    try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(stored)); } catch (e) {}
+  });
+});
 
 async function goToPage(key, page) {
   const s = sections[key];
@@ -435,65 +688,6 @@ async function loadHealth() {
   }
 }
 
-// Load stats
-async function loadStats() {
-  try {
-    const data = await api('/api/admin/stats');
-
-    // Tiles
-    const tiles = $('stats-tiles');
-    tiles.innerHTML = `
-      <div class="stat-tile">
-        <div class="stat-value">${data.totalGames}</div>
-        <div class="stat-label">Всего игр</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-value">${data.freeGames}</div>
-        <div class="stat-label">Бесплатных</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-value">${data.discountedGames}</div>
-        <div class="stat-label">Со скидкой</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-value">${data.averageDiscount}%</div>
-        <div class="stat-label">Средняя скидка</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-value">${esc(fmtDate(data.lastUpdate))}</div>
-        <div class="stat-label">Последнее обновление</div>
-      </div>
-    `;
-
-    // By platform
-    const platforms = $('stats-platforms');
-    if (data.byStore && Object.keys(data.byStore).length > 0) {
-      platforms.innerHTML = '<h3>По платформам</h3>' + Object.entries(data.byStore).map(([name, stats]) => `
-        <div class="platform-stat">
-          <div class="platform-name">${esc(name)}</div>
-          <div class="platform-stats">
-            Всего: ${stats.total} | Бесплатных: ${stats.free} | Со скидкой: ${stats.discounted}
-          </div>
-        </div>
-      `).join('');
-    } else {
-      platforms.innerHTML = '';
-    }
-
-    // Top discounts
-    const top = $('stats-top');
-    if (data.topDiscounts && data.topDiscounts.length > 0) {
-      top.innerHTML = '<h3>Топ скидок</h3><ul class="top-discounts">' + data.topDiscounts.map(item => `
-        <li><strong>${esc(item.title)}</strong> (${esc(item.storeId)}) -${item.discount}%</li>
-      `).join('') + '</ul>';
-    } else {
-      top.innerHTML = '';
-    }
-  } catch (e) {
-    $('stats-tiles').innerHTML = `<div class="state-error">Статистика недоступна: ${esc(e.message)}</div>`;
-  }
-}
-
 // Load platforms
 async function loadPlatforms() {
   try {
@@ -520,12 +714,8 @@ async function loadPlatforms() {
 }
 
 function reloadAll() {
-  return Promise.all([loadHealth(), loadStats(), loadPlatforms(), loadParseEstimate()]).then(loadSections);
+  return Promise.all([loadHealth(), loadPlatforms(), loadParseEstimate()]).then(loadSections);
 }
-
-$('btn-stats').addEventListener('click', loadStats);
-
-$('btn-health').addEventListener('click', loadHealth);
 
 // ---- «Обновлено N мин назад» ----
 let lastRefreshAt = null;

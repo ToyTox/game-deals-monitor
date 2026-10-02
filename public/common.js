@@ -76,8 +76,9 @@ function renderCards(grid, games, expanded = false) {
       ? `<p class="card-desc">${esc(game.description)}</p>`
       : '';
 
+    // В компактной карточке — только первый тег
     const tagsHtml = game.tags && game.tags.length > 0
-      ? `<ul class="card-tags">${game.tags.map(t => `<li class="card-tag">${esc(t.name)}</li>`).join('')}</ul>`
+      ? `<p class="card-tag card-tag-single">${esc(game.tags[0].name)}</p>`
       : '';
 
     // Позиции вишлиста, которых нет в продаже в нашем регионе, приходят без цены
@@ -95,27 +96,14 @@ function renderCards(grid, games, expanded = false) {
       </div>
     `;
 
-    // Заголовок ведёт на страницу игры, но у позиций вишлиста нет записи в базе
-    // (и slug'а) — там он остаётся прямой ссылкой в магазин, без дубля ниже.
+    // Заголовок — ссылка на страницу игры, растянутая на всю карточку (.card-link::after),
+    // поэтому вложенных ссылок нет, а фокус и Enter работают как у обычной ссылки.
+    // У позиций вишлиста нет записи в базе (и slug'а) — там ссылка ведёт прямо
+    // в магазин, без дубля ниже.
     const titleHtml = game.slug
-      ? `<h3><a href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
+      ? `<h3><a class="card-link" href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
          <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
-      : `<h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
-
-    const historyHtml = game.priceHistory && game.priceHistory.length > 0
-      ? `<details class="card-history">
-          <summary>История цен (${game.priceHistory.length})</summary>
-          <ul class="history-list">
-            ${game.priceHistory.map(h => `
-              <li>
-                <strong>${esc(fmtDate(h.createdAt))}</strong><br>
-                Цена: ${esc(fmtPrice(h.oldPrice, game.currency))} → ${esc(fmtPrice(h.newPrice, game.currency))}<br>
-                Скидка: ${h.oldDiscount}% → ${h.newDiscount}%
-              </li>
-            `).join('')}
-          </ul>
-        </details>`
-      : '';
+      : `<h3><a class="card-link" href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
 
     // Кнопка динамики цены для Steam, GOG и Epic: рисуется, только если ITAD включён.
     // appid — из вишлиста или ссылки на игру; без него запрос уходит по названию
@@ -129,11 +117,6 @@ function renderCards(grid, games, expanded = false) {
       <div class="dynamics-content"></div>
     </div>`;
 
-    // У позиций вишлиста нет записи в базе — печатать «ID: undefined» незачем
-    const metaHtml = game.id === undefined
-      ? ''
-      : `<p class="card-meta">ID: ${esc(game.id)}</p><p class="card-meta">Создано: ${esc(fmtDate(game.createdAt))}</p><p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>`;
-
     return `
       <article class="card${expanded ? ' card-expanded' : ''}">
         ${imgHtml}
@@ -145,8 +128,6 @@ function renderCards(grid, games, expanded = false) {
           ${descHtml}
           ${tagsHtml}
           ${priceDynamicsBtn}
-          ${metaHtml}
-          ${historyHtml}
           ${priceDynamicsBlock}
         </div>
       </article>

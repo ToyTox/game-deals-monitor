@@ -4,6 +4,8 @@ import steamWishlistService, {
   type WishlistItem,
 } from '../services/steamWishlistService.js';
 
+import steamProfileService, { ProfileError } from '../services/steamProfileService.js';
+
 const router = Router();
 
 /**
@@ -52,6 +54,32 @@ function parseCount(raw: unknown, fallback: number): number {
   const value = Number.parseInt(String(raw), 10);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
+
+/**
+ * GET /api/wishlist/profile
+ * Аватар, имя и фон профиля Steam по SteamID64. Отдельным запросом, чтобы не замедлять вишлист.
+ * При частичном сбое Steam в ответе есть `missing` — список не полученных частей (`avatar`, `background`).
+ */
+router.get('/profile', async (req: Request, res: Response) => {
+  const steamId = typeof req.query.steamId === 'string' ? req.query.steamId.trim() : '';
+
+  if (!/^\d{17}$/.test(steamId)) {
+    return res.status(400).json({ error: 'Укажите SteamID64 (17 цифр) в параметре steamId' });
+  }
+
+  try {
+    res.json(await steamProfileService.getProfile(steamId));
+  } catch (error) {
+    if (error instanceof ProfileError) {
+      return res.status(502).json({ error: error.message, code: 'upstream' });
+    }
+
+    res.status(500).json({
+      error: 'Ошибка при получении профиля Steam',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 /**
  * GET /api/wishlist

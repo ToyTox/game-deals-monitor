@@ -364,6 +364,67 @@ $('btn-parse').addEventListener('click', async () => {
   }
 });
 
+// Load stats
+async function loadStats() {
+  try {
+    const data = await api('/api/admin/stats');
+
+    // Tiles
+    const tiles = $('stats-tiles');
+    tiles.innerHTML = `
+      <div class="stat-tile">
+        <div class="stat-value">${data.totalGames}</div>
+        <div class="stat-label">Всего игр</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${data.freeGames}</div>
+        <div class="stat-label">Бесплатных</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${data.discountedGames}</div>
+        <div class="stat-label">Со скидкой</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${data.averageDiscount}%</div>
+        <div class="stat-label">Средняя скидка</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${esc(fmtDate(data.lastUpdate))}</div>
+        <div class="stat-label">Последнее обновление</div>
+      </div>
+    `;
+
+    // By platform
+    const platforms = $('stats-platforms');
+    if (data.byStore && Object.keys(data.byStore).length > 0) {
+      platforms.innerHTML = '<h3>По платформам</h3>' + Object.entries(data.byStore).map(([name, stats]) => `
+        <div class="platform-stat">
+          <div class="platform-name">${esc(name)}</div>
+          <div class="platform-stats">
+            Всего: ${stats.total} | Бесплатных: ${stats.free} | Со скидкой: ${stats.discounted}
+          </div>
+        </div>
+      `).join('');
+    } else {
+      platforms.innerHTML = '';
+    }
+
+    // Top discounts
+    const top = $('stats-top');
+    if (data.topDiscounts && data.topDiscounts.length > 0) {
+      top.innerHTML = '<h3>Топ скидок</h3><ul class="top-discounts">' + data.topDiscounts.map(item => `
+        <li><strong>${esc(item.title)}</strong> (${esc(item.storeId)}) -${item.discount}%</li>
+      `).join('') + '</ul>';
+    } else {
+      top.innerHTML = '';
+    }
+  } catch (e) {
+    $('stats-tiles').innerHTML = `<div class="state-error">Статистика недоступна: ${esc(e.message)}</div>`;
+  }
+}
+
+$('btn-stats').addEventListener('click', loadStats);
+
 // Списки платформ в формах ручек
 async function loadPlatforms() {
   try {
@@ -386,5 +447,6 @@ async function loadPlatforms() {
 }
 
 // Init on load (скрипт с defer — DOM уже разобран)
+loadStats();
 showEmpty('Выберите ручку API выше — результат появится здесь');
 loadPlatforms();

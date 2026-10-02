@@ -51,6 +51,7 @@ export function createApp(): express.Express {
         singleGame: '/api/games/:title',
         gameBySlug: '/api/games/slug/:slug',
         wishlist: '/api/wishlist?user=<SteamID|ссылка|ник>',
+        wishlistProfile: '/api/wishlist/profile?steamId=<SteamID64>',
         priceDynamicsStatus: '/api/price-dynamics/status',
         priceDynamics: '/api/price-dynamics?store=<steam|gog|epic>&title=<name>[&appId=<id>]',
         stats: '/api/admin/stats',
