@@ -240,7 +240,7 @@ describe('ItadService', () => {
         country: 'RU',
         shops: 61,
       });
-      expect(params.since).toMatch(/^\d{4}-\d{2}-\d{2}$/); // ISO-дата
+      expect(params.since).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/); // date-time без миллисекунд
       expect(params.gameid).toBeUndefined(); // старый параметр не должен быть
     });
 
@@ -433,6 +433,22 @@ describe('ItadService', () => {
 
       await expect(itadService.getPriceDynamics('steam', 12345)).rejects.toThrow(
         expect.objectContaining({ code: 'upstream' })
+      );
+    });
+
+    it('добавляет причину от ITAD в сообщение upstream', async () => {
+      mockedGet
+        .mockResolvedValueOnce({ data: { found: true, game: { id: 'game-123' } } })
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Request failed with status code 400'), {
+            isAxiosError: true,
+            response: { data: { reason_phrase: "Invalid 'since' format" } },
+          })
+        );
+      (mockedAxios as any).isAxiosError = (e: any) => e?.isAxiosError === true;
+
+      await expect(itadService.getPriceDynamics('steam', 12345)).rejects.toThrow(
+        expect.objectContaining({ code: 'upstream', message: expect.stringContaining("Invalid 'since' format") })
       );
     });
 

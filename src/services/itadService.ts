@@ -167,7 +167,10 @@ interface RawHistoryRecord {
       amount?: number;
       currency?: string;
     };
-    regular?: number;
+    regular?: {
+      amount?: number;
+      currency?: string;
+    };
     cut?: number;
   };
 }
@@ -269,14 +272,15 @@ export class ItadService {
     let currency: string | null = null;
 
     try {
-      const sinceDate = new Date('2000-01-01').toISOString().split('T')[0];
+      // ITAD принимает только date-time без миллисекунд
+      const since = '2000-01-01T00:00:00Z';
       const response = await axios.get<RawHistoryRecord[]>(`${ITAD_API}/games/history/v2`, {
         params: {
           key,
           id: gameId,
           country,
           shops: shopId,
-          since: sinceDate,
+          since,
         },
         timeout: 10000,
       });
@@ -305,9 +309,10 @@ export class ItadService {
         }
       }
     } catch (error) {
+      const reason = axios.isAxiosError?.(error) ? error.response?.data?.reason_phrase : undefined;
       throw new PriceDynamicsError(
         'upstream',
-        `ITAD history fetch failed: ${error instanceof Error ? error.message : 'unknown'}`
+        `ITAD history fetch failed: ${error instanceof Error ? error.message : 'unknown'}${reason ? ` (${reason})` : ''}`
       );
     }
 
