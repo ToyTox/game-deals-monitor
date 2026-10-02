@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
+import { ProfileError } from '../../src/services/steamProfileService.js';
 import { WishlistError, type WishlistItem } from '../../src/services/steamWishlistService.js';
 
 // Роут не должен ходить в сеть: сервис заменяем целиком. Форма с default обязательна —
@@ -13,6 +14,14 @@ vi.mock('../../src/services/steamWishlistService.js', async (importOriginal) => 
     default: { getWishlist: vi.fn(), resolveSteamId: vi.fn(), resetCache: vi.fn() },
   };
 });
+
+vi.mock('../../src/services/steamProfileService.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/services/steamProfileService.js')>();
+  return { ...actual, default: { getProfile: vi.fn(), resetCache: vi.fn() } };
+});
+
+const { default: steamProfileService } = await import('../../src/services/steamProfileService.js');
+const mockedGetProfile = steamProfileService.getProfile as unknown as Mock;
 
 const { default: steamWishlistService } = await import('../../src/services/steamWishlistService.js');
 const mockedGetWishlist = steamWishlistService.getWishlist as unknown as Mock;
@@ -228,5 +237,68 @@ describe('GET /api/wishlist', () => {
     mockedGetWishlist.mockRejectedValue(new Error('что-то упало'));
 
     await request(app).get(`/api/wishlist?user=${STEAM_ID}`).expect(500);
+  });
+});
+
+describe('GET /api/wishlist/profile', () => {
+  beforeEach(() => {
+    mockedGetProfile.mockReset();
+  });
+
+  it('отдаёт профиль со статичным фоном', async () => {
+    const profile = {
+      steamId: STEAM_ID,
+      avatarUrl: 'https://avatars.steamstatic.com/a_full.jpg',
+      name: 'Игрок',
+      background: { imageUrl: 'https://img/static.jpg', videoWebmUrl: null, videoMp4Url: null },
+    };
+    mockedGetProfile.mockResolvedValue(profile);
+
+    const res = await request(app).get(`/api/wishlist/profile?steamId=${STEAM_ID}`).expect(200);
+
+    expect(res.body).toEqual(profile);
+    expect(mockedGetProfile).toHaveBeenCalledWith(STEAM_ID);
+  });
+
+  it('отдаёт профиль с анимированным фоном', async () => {
+    const background = {
+      imageUrl: 'https://img/poster.jpg',
+      videoWebmUrl: 'https://img/movie.webm',
+      videoMp4Url: 'https://img/movie.mp4',
+    };
+    mockedGetProfile.mockResolvedValue({ steamId: STEAM_ID, avatarUrl: null, name: null, background });
+
+    const res = await request(app).get(`/api/wishlist/profile?steamId=${STEAM_ID}`).expect(200);
+
+    expect(res.body.background).toEqual(background);
+    expect(res.body.avatarUrl).toBeNull();
+  });
+
+  it('частичный сбой: missing в ответе, при полном профиле его нет', async () => {
+    mockedGetProfile.mockResolvedValue({
+      steamId: STEAM_ID, avatarUrl: null, name: null, background: null, missing: ['avatar'],
+    });
+    const partial = await request(app).get(`/api/wishlist/profile?steamId=${STEAM_ID}`).expect(200);
+    expect(partial.body.missing).toEqual(['avatar']);
+
+    mockedGetProfile.mockResolvedValue({ steamId: STEAM_ID, avatarUrl: null, name: null, background: null });
+    const full = await request(app).get(`/api/wishlist/profile?steamId=${STEAM_ID}`).expect(200);
+    expect(full.body).not.toHaveProperty('missing');
+  });
+
+  it('плохой SteamID -> 400 без похода в Steam', async () => {
+    await request(app).get('/api/wishlist/profile').expect(400);
+    await request(app).get('/api/wishlist/profile?steamId=gaben').expect(400);
+    await request(app).get('/api/wishlist/profile?steamId=123').expect(400);
+
+    expect(mockedGetProfile).not.toHaveBeenCalled();
+  });
+
+  it('Steam не ответил -> 502', async () => {
+    mockedGetProfile.mockRejectedValue(new ProfileError('Steam не ответил'));
+
+    const res = await request(app).get(`/api/wishlist/profile?steamId=${STEAM_ID}`).expect(502);
+
+    expect(res.body.code).toBe('upstream');
   });
 });

@@ -30,6 +30,8 @@
   --muted-ring: rgba(153, 153, 153, 0.3);
   --success-soft: rgba(68, 204, 68, 0.2);
   --warning-soft: rgba(255, 140, 0, 0.2);
+
+  --bg-dim: rgba(15, 15, 15, 0.75);
 }
 
 /* Светлая тема */
@@ -64,6 +66,8 @@
   --muted-ring: rgba(95, 102, 114, 0.3);
   --success-soft: rgba(26, 127, 55, 0.12);
   --warning-soft: rgba(163, 90, 0, 0.14);
+
+  --bg-dim: rgba(245, 246, 248, 0.8);
 }
 
 * {
@@ -79,6 +83,47 @@ body {
   color: var(--text);
   line-height: 1.6;
   transition: background-color 0.2s, color 0.2s;
+}
+
+/* Фон профиля Steam: на всю страницу под контентом, поверх него затемнение */
+.profile-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.profile-bg[hidden] {
+  display: none;
+}
+
+.profile-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--bg-dim);
+}
+
+.profile-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.profile-bg-video.is-playing {
+  opacity: 1;
+}
+
+/* Корневой фон остаётся на canvas, а body не должен перекрывать слой с z-index: -1 */
+body.has-profile-bg {
+  background-color: transparent;
 }
 
 header {
@@ -623,6 +668,15 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.9rem;
+}
+
+.wishlist-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
 }
 
 .wishlist-form input:focus-visible {
