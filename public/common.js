@@ -95,6 +95,13 @@ function renderCards(grid, games, expanded = false) {
       </div>
     `;
 
+    // Заголовок ведёт на страницу игры, но у позиций вишлиста нет записи в базе
+    // (и slug'а) — там он остаётся прямой ссылкой в магазин, без дубля ниже.
+    const titleHtml = game.slug
+      ? `<h3><a href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
+         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
+      : `<h3><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
+
     const historyHtml = game.priceHistory && game.priceHistory.length > 0
       ? `<details class="card-history">
           <summary>История цен (${game.priceHistory.length})</summary>
