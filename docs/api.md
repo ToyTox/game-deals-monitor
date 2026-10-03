@@ -37,6 +37,7 @@
     "singleGame": "/api/games/:title",
     "gameBySlug": "/api/games/slug/:slug",
     "wishlist": "/api/wishlist?user=<SteamID|ссылка|ник>",
+    "wishlistProfile": "/api/wishlist/profile?steamId=<SteamID64>",
     "priceDynamicsStatus": "/api/price-dynamics/status",
     "priceDynamics": "/api/price-dynamics?store=<steam|gog|epic>&title=<name>[&appId=<id>]",
     "stats": "/api/admin/stats",
@@ -367,6 +368,57 @@ curl 'http://localhost:3000/api/wishlist?user=76561198028121353&sort=discount&li
 | `502` | Steam не ответил | `upstream` |
 
 > Пустой и закрытый вишлист **неразличимы**: Steam в обоих случаях отвечает `{"response":{}}`. Поэтому один код на два случая и текст с оговоркой (см. [TODO.md](../TODO.md), раздел «Ограничения by design»).
+
+### `GET /api/wishlist/profile`
+
+Оформление профиля Steam: аватар, имя и фон. Отдельный запрос, чтобы не замедлять `/api/wishlist`; фронтенд вызывает его один раз после первой успешной проверки вишлиста и хранит результат в `localStorage`. Ключ Steam Web API не нужен.
+
+Аватар и имя берутся из XML профиля (`steamcommunity.com/profiles/<id>/?xml=1`, поле `avatarFull` корневого профиля, а не групп), фон — из `IPlayerService/GetProfileItemsEquipped` (`profile_background`). Пути фона у Steam относительные, сервис собирает полные URL. Полный ответ кэшируется в памяти процесса на 15 минут; неполный (см. `missing`) не кэшируется, следующий запрос снова идёт в Steam.
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `steamId` | string | **Обязателен.** SteamID64 — 17 цифр. Ник и ссылки здесь не принимаются: `/api/wishlist` возвращает уже разрешённый `steamId` |
+
+```bash
+curl 'http://localhost:3000/api/wishlist/profile?steamId=76561198006409530'
+```
+
+```json
+{
+  "steamId": "76561198006409530",
+  "avatarUrl": "https://avatars.steamstatic.com/<hash>_full.jpg",
+  "name": "Игрок",
+  "background": {
+    "imageUrl": "https://shared.fastly.steamstatic.com/community_assets/images/items/<appid>/<hash>.jpg",
+    "videoWebmUrl": "https://shared.fastly.steamstatic.com/community_assets/images/items/<appid>/<hash>.webm",
+    "videoMp4Url": "https://shared.fastly.steamstatic.com/community_assets/images/items/<appid>/<hash>.mp4"
+  }
+}
+```
+
+| Поле | Описание |
+|---|---|
+| `avatarUrl`, `name` | `null`, если XML профиля не получен или поле пустое |
+| `background` | `null`, если фона нет или API фона не ответил |
+| `background.imageUrl` | Статичная картинка; у анимированного фона служит постером и запасным вариантом |
+| `background.videoWebmUrl`, `background.videoMp4Url` | Только у анимированных фонов, иначе `null` |
+
+| `missing` | Только при частичном сбое Steam: массив не полученных частей, `avatar` (аватар и имя) и/или `background`. При полном ответе поля нет. Так «не удалось получить» отличается от «у пользователя нет фона»: во втором случае `background: null` без `missing` |
+
+Сбой одной части ответа не роняет запрос: она `null`, а в `missing` указано, чего не хватает. Фронтенд хранит такой профиль как неполный и перезапрашивает его при следующей загрузке страницы (не чаще раза за загрузку).
+
+Пример неполного ответа (XML профиля не получен):
+
+```json
+{ "steamId": "76561198006409530", "avatarUrl": null, "name": null, "background": { "imageUrl": "...", "videoWebmUrl": null, "videoMp4Url": null }, "missing": ["avatar"] }
+```
+
+`avatarUrl` принимается только с `https` и хоста `steamstatic.com`; иначе он `null` (без `missing`).
+
+| Код | Когда | `code` в теле |
+|---|---|---|
+| `400` | `steamId` не передан или не 17 цифр | — |
+| `502` | Steam не ответил ни на один из двух запросов | `upstream` |
 
 ---
 

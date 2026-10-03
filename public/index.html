@@ -51,6 +51,9 @@
     </div>
   </div>
 
+  <!-- Фон профиля Steam: картинка и, у анимированных, видео поверх неё -->
+  <div id="profile-bg" class="profile-bg" aria-hidden="true" hidden></div>
+
   <main>
     <!-- Statistics Section -->
     <section class="stats-section">
@@ -71,11 +74,13 @@
         <div class="section-meta" id="wishlist-meta"></div>
       </div>
       <form id="wishlist-form" class="wishlist-form">
+        <img id="wishlist-avatar" class="wishlist-avatar" alt="" width="40" height="40" hidden>
         <input id="wishlist-input" type="text" autocomplete="off" spellcheck="false"
                placeholder="SteamID64, ссылка на профиль или ник"
                aria-label="SteamID, ссылка на профиль или ник">
         <button type="submit">Показать</button>
         <button type="button" id="wishlist-clear" hidden>Забыть</button>
+        <button type="button" id="wishlist-decor-off" hidden title="Убрать фон и аватар профиля">Убрать оформление</button>
       </form>
       <div id="wishlist-filters" class="section-filters"></div>
       <div id="wishlist-state"></div>

@@ -71,6 +71,7 @@ game-deals-monitor/
 │       ├── parserService.ts # оркестрация парсеров
 │       ├── gameService.ts   # выборки, статистика, поиск
 │       ├── steamWishlistService.ts # вишлист Steam
+│       ├── steamProfileService.ts # аватар и фон профиля Steam
 │       ├── itadService.ts   # динамика цены (IsThereAnyDeal API)
 │       ├── currencyService.ts # конвертация валют
 │       └── index.ts         # версия API
