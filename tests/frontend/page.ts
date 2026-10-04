@@ -15,6 +15,8 @@ export interface StubResponse {
 export type Route = unknown | ((url: URL) => StubResponse | unknown);
 
 export interface PageOptions {
+  // Страница и её скрипт после common.js: по умолчанию главная
+  entry?: { html: string; script: string };
   routes?: Record<string, Route>;
   // Значения localStorage на момент загрузки страницы
   storage?: Record<string, string>;
@@ -34,7 +36,7 @@ export interface Page {
 const isStubResponse = (v: unknown): v is StubResponse =>
   typeof v === 'object' && v !== null && 'body' in v;
 
-// Поднимает настоящий public/index.html и выполняет common.js и app.js
+// Поднимает настоящий public/index.html (или admin.html) и выполняет common.js и app.js (или admin.js)
 // как классические скрипты: функции и let/const остаются общими глобалами.
 export async function loadPage(options: PageOptions = {}): Promise<Page> {
   const errors: unknown[] = [];
@@ -43,7 +45,7 @@ export async function loadPage(options: PageOptions = {}): Promise<Page> {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => errors.push(e));
 
-  const dom = new JSDOM(read('index.html'), {
+  const dom = new JSDOM(read(options.entry?.html ?? 'index.html'), {
     url: 'http://localhost/',
     runScripts: 'dangerously',
     virtualConsole,
@@ -79,7 +81,7 @@ export async function loadPage(options: PageOptions = {}): Promise<Page> {
   process.on('unhandledRejection', onRejection);
 
   const { document } = dom.window;
-  for (const name of ['common.js', 'app.js']) {
+  for (const name of ['common.js', options.entry?.script ?? 'app.js']) {
     const script = document.createElement('script');
     script.textContent = read(name);
     document.body.appendChild(script);

@@ -628,6 +628,48 @@ input[type="checkbox"] {
   margin: 0;
 }
 
+/* Заголовок раздела — кнопка сворачивания */
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.section-toggle::after {
+  content: '▾';
+  font-size: 0.9em;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.section-toggle[aria-expanded="false"]::after {
+  transform: rotate(-90deg);
+}
+
+.section-toggle:hover {
+  color: var(--accent);
+}
+
+.section-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.catalog-section.is-collapsed > :not(.section-head) {
+  display: none;
+}
+
+.catalog-section.is-collapsed .section-head {
+  margin-bottom: 0;
+}
+
 .section-meta {
   font-size: 0.9rem;
   color: var(--muted);
@@ -880,6 +922,7 @@ input[type="checkbox"] {
 }
 
 .card {
+  position: relative;
   background-color: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -893,6 +936,35 @@ input[type="checkbox"] {
 .card:hover {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Ссылка в заголовке растянута на всю карточку: клик в любом месте ведёт по ней */
+.card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.card:has(.card-link) {
+  cursor: pointer;
+}
+
+.card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Остальные интерактивные элементы лежат поверх растянутой ссылки */
+.card-store-link a,
+.btn-price-dynamics,
+.card-dynamics {
+  position: relative;
+  z-index: 1;
+}
+
+.card-dynamics {
+  cursor: auto;
 }
 
 .card-img {
@@ -986,6 +1058,11 @@ input[type="checkbox"] {
   font-size: 0.75rem;
   background-color: var(--muted-soft);
   color: var(--muted);
+}
+
+.card-tag-single {
+  align-self: flex-start;
+  margin: 0.5rem 0 0;
 }
 
 .card h3 {
