@@ -148,19 +148,34 @@ describe('BaseParser.saveGames', () => {
       expect(games.map((g) => g.slug)).toEqual(['stal', 'stal-2']);
     });
 
-    it('пустые картинку и описание игры заполняет следующий магазин', async () => {
+    it('пустое описание игры заполняет следующий магазин', async () => {
       await new TestParser('steam').saveGames([game()]);
-      await new TestParser('gog').saveGames([
-        game({ imageUrl: 'https://example.test/gog.jpg', description: 'Из GOG' }),
-      ]);
-      await new TestParser('epic').saveGames([
-        game({ imageUrl: 'https://example.test/epic.jpg', description: 'Из Epic' }),
-      ]);
+      await new TestParser('gog').saveGames([game({ description: 'Из GOG' })]);
+      await new TestParser('epic').saveGames([game({ description: 'Из Epic' })]);
 
-      expect(await prisma.game.findFirstOrThrow()).toMatchObject({
-        imageUrl: 'https://example.test/gog.jpg',
-        description: 'Из GOG',
-      });
+      expect(await prisma.game.findFirstOrThrow()).toMatchObject({ description: 'Из GOG' });
+    });
+
+    it('свежая картинка магазина заменяет сохранённую', async () => {
+      await new TestParser('steam').saveGames([game({ imageUrl: 'https://example.test/old.jpg' })]);
+      await new TestParser('steam').saveGames([game({ imageUrl: 'https://example.test/new.jpg' })]);
+
+      expect((await prisma.game.findFirstOrThrow()).imageUrl).toBe('https://example.test/new.jpg');
+    });
+
+    it('пустая картинка не стирает сохранённую', async () => {
+      await new TestParser('steam').saveGames([game({ imageUrl: 'https://example.test/cover.jpg' })]);
+      await new TestParser('gog').saveGames([game({ imageUrl: undefined })]);
+      await new TestParser('epic').saveGames([game({ imageUrl: '' })]);
+
+      expect((await prisma.game.findFirstOrThrow()).imageUrl).toBe('https://example.test/cover.jpg');
+    });
+
+    it('описание существующей игры не перезаписывается', async () => {
+      await new TestParser('steam').saveGames([game({ description: 'Первое' })]);
+      await new TestParser('steam').saveGames([game({ description: 'Второе' })]);
+
+      expect((await prisma.game.findFirstOrThrow()).description).toBe('Первое');
     });
   });
 

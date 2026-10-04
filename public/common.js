@@ -56,6 +56,95 @@ function esc(s) {
 // Бейджи для всего, что не полноценная игра (ключи — GAME_KINDS из src/types.ts)
 const KIND_LABELS = { demo: 'Демо', dlc: 'DLC', kit: 'Kit' };
 
+// Пиксельная иконка из /icons (маска в CSS, цвет — по тексту вокруг)
+function icon(name, extra = '') {
+  return `<span class="icon icon-${name}${extra ? ` ${extra}` : ''}" aria-hidden="true"></span>`;
+}
+
+// ---- Загрузка картинок: повторы и восстановление ----
+// Обложка может не загрузиться из-за плавающего сбоя сети. Битую картинку
+// перезагружаем несколько раз с растущей паузой, и только потом ставим заглушку.
+// Заглушка хранит исходный URL и оживает при возврате сети или на вкладку.
+const IMG_RETRY_LIMIT = 3;
+let imgRetryDelay = 1500;
+
+// Тот же URL с меняющимся параметром — браузер не отдаст закэшированную ошибку
+function imgRetryUrl(url, attempt) {
+  try {
+    const u = new URL(url, location.href);
+    u.searchParams.set('_retry', `${attempt}-${Date.now()}`);
+    return u.href;
+  } catch {
+    return url;
+  }
+}
+
+// Битая картинка → заглушка того же класса с исходным URL
+function imageToStub(img, url) {
+  const stub = document.createElement('div');
+  stub.className = `${img.className} placeholder`;
+  stub.dataset.imgSrc = url;
+  stub.dataset.imgAlt = img.alt || '';
+  stub.setAttribute('role', 'img');
+  stub.setAttribute('aria-label', img.alt || '');
+  img.replaceWith(stub);
+}
+
+// Следит за картинкой; giveUp(img, url) вызывается, когда попытки исчерпаны.
+// Новый src, выставленный не нами (другой профиль), начинает отсчёт заново.
+function watchImage(img, giveUp = imageToStub) {
+  let origin = null;
+  let lastRetry = null;
+  let attempt = 0;
+
+  img.addEventListener('error', () => {
+    const current = img.getAttribute('src');
+    if (current !== lastRetry) {
+      origin = current;
+      attempt = 0;
+    }
+    if (!origin) return;
+    if (attempt >= IMG_RETRY_LIMIT) return giveUp(img, origin);
+
+    attempt++;
+    setTimeout(() => {
+      if (!img.isConnected || img.getAttribute('src') !== current) return;
+      lastRetry = imgRetryUrl(origin, attempt);
+      img.src = lastRetry;
+    }, imgRetryDelay * attempt);
+  });
+}
+
+// Аватар: после исчерпания попыток прячем, исходный URL помним для восстановления
+function hideFailedImage(img, url) {
+  img.hidden = true;
+  img.dataset.imgFailed = url;
+}
+
+// Сеть вернулась или пользователь вернулся на вкладку: оживляем всё, что сдалось
+function retryFailedImages() {
+  document.querySelectorAll('div[data-img-src]').forEach(stub => {
+    const img = document.createElement('img');
+    img.className = stub.className.replace(/\s*\bplaceholder\b/, '');
+    img.alt = stub.dataset.imgAlt || '';
+    img.src = imgRetryUrl(stub.dataset.imgSrc, 1);
+    watchImage(img);
+    stub.replaceWith(img);
+  });
+
+  document.querySelectorAll('img[data-img-failed]').forEach(img => {
+    const url = img.dataset.imgFailed;
+    delete img.dataset.imgFailed;
+    img.hidden = false;
+    img.src = imgRetryUrl(url, 1);
+  });
+}
+
+window.addEventListener('online', retryFailedImages);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) retryFailedImages();
+});
+
 // Статус ITAD (заполняется в app.js до отрисовки карточек)
 let itadStatus = null;
 
@@ -64,7 +153,7 @@ function renderCards(grid, games, expanded = false) {
   grid.innerHTML = games.map(game => {
     const imgHtml = game.imageUrl
       ? `<img class="card-img" src="${esc(game.imageUrl)}" alt="${esc(game.title)}" loading="lazy">`
-      : '<div class="card-img placeholder">🎮</div>';
+      : '<div class="card-img placeholder"></div>';
 
     const saleEndDateHtml = game.saleEndDate
       ? `<p class="card-sale">Акция до: ${esc(fmtDate(game.saleEndDate))}</p>`
@@ -102,14 +191,14 @@ function renderCards(grid, games, expanded = false) {
     // в магазин, без дубля ниже.
     const titleHtml = game.slug
       ? `<h3><a class="card-link" href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
-         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ↗</a></p>`
+         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ${icon('arrow-right', 'icon-external')}</a></p>`
       : `<h3><a class="card-link" href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
 
     // Кнопка динамики цены для Steam, GOG и Epic: рисуется, только если ITAD включён.
     // appid — из вишлиста или ссылки на игру; без него запрос уходит по названию
     const dynamicsAppId = game.appId ? String(game.appId) : (game.gameUrl?.match(/\/app\/(\d+)/)?.[1] || '');
     const priceDynamicsBtn = (itadStatus?.enabled && (game.platform === 'steam' || game.platform === 'gog' || game.platform === 'epic'))
-      ? `<button class="btn-price-dynamics" type="button" data-platform="${esc(game.platform)}" data-app-id="${esc(dynamicsAppId)}" data-title="${esc(game.title)}">📊 Динамика цены</button>`
+      ? `<button class="btn-price-dynamics" type="button" data-platform="${esc(game.platform)}" data-app-id="${esc(dynamicsAppId)}" data-title="${esc(game.title)}">${icon('chart')} Динамика цены</button>`
       : '';
 
     const priceDynamicsBlock = `<div class="card-dynamics" hidden>
@@ -134,15 +223,8 @@ function renderCards(grid, games, expanded = false) {
     `;
   }).join('');
 
-  // Битая обложка — подменяем заглушкой (инлайновый onerror запрещён)
-  grid.querySelectorAll('img.card-img').forEach(img => {
-    img.addEventListener('error', () => {
-      const stub = document.createElement('div');
-      stub.className = 'card-img placeholder';
-      stub.textContent = '🎮';
-      img.replaceWith(stub);
-    });
-  });
+  // Битая обложка: повторы, затем заглушка (инлайновый onerror запрещён)
+  grid.querySelectorAll('img.card-img').forEach(img => watchImage(img));
 }
 
 // ---- Всплывающие уведомления ----
@@ -172,8 +254,8 @@ function showToast(kind, title, lines = []) {
 // Тема (значение уже проставлено инлайн-скриптом в <head>)
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  // в тёмной показываем ☀️ («включить светлую»), в светлой — 🌙
-  $('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+  // в тёмной показываем солнце («включить светлую»), в светлой — луну
+  $('theme-toggle').innerHTML = icon(theme === 'dark' ? 'sun' : 'moon');
 }
 
 applyTheme(document.documentElement.dataset.theme || 'dark');

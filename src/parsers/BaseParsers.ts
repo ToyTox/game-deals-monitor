@@ -159,9 +159,10 @@ export abstract class BaseParser {
 
   /**
    * Каноническая игра по нормализованному названию: одна на все магазины.
-   * Название, картинку и описание задаёт первый магазин, остальные только
-   * заполняют пустые поля. kind пересчитывается при каждом прогоне — так до
-   * старых записей доезжают поправки в правилах detectGameKind.
+   * Название и описание задаёт первый магазин, остальные только заполняют
+   * пустые поля. Картинку, наоборот, обновляет свежая от магазина: ссылки
+   * протухают, а пустая не стирает имеющуюся. kind пересчитывается при каждом
+   * прогоне — так до старых записей доезжают поправки в правилах detectGameKind.
    */
   private async upsertGame(game: ParsedGame): Promise<number> {
     const normalizedTitle = normalizeTitle(game.title);
@@ -175,7 +176,7 @@ export abstract class BaseParser {
         where: { id: existing.id },
         data: {
           kind,
-          imageUrl: existing.imageUrl ?? game.imageUrl,
+          imageUrl: game.imageUrl || existing.imageUrl,
           description: existing.description ?? game.description,
           // Магазин без тегов не должен стирать теги, проставленные другим магазином.
           ...(tags.length > 0 ? { tags: { set: tags } } : {}),

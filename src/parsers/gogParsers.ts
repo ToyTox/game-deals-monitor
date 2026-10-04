@@ -50,6 +50,17 @@ interface GogCatalogResponse {
   products?: GogProduct[];
 }
 
+// Обложки лежат на images.gog-statics.com как <hash>.<ext> — оригинал весит до 1,8 МБ.
+// Рядом по тому же hash есть лёгкая плитка каталога: <hash>_product_tile_398.jpg.
+const GOG_COVER = /^(https:\/\/images\.gog-statics\.com\/[0-9a-f]+)\.(?:png|jpe?g|webp)$/i;
+const COVER_TILE_SUFFIX = '_product_tile_398.jpg';
+
+/** Оригинал обложки → лёгкий вариант; чужие URL и уже уменьшенные остаются как есть. */
+export function toCoverTile(url?: string): string | undefined {
+  const match = url?.match(GOG_COVER);
+  return match ? `${match[1]}${COVER_TILE_SUFFIX}` : url;
+}
+
 const clampPercent = (value: number): number => Math.min(100, Math.max(0, value));
 
 /** Суммы приходят строками: "33", "1399", "1.49". */
@@ -156,7 +167,7 @@ export class GOGParser extends BaseParser {
       discountPercent: parseDiscountPercent(price, originalPrice, currentPrice),
       isFree: currentPrice === 0,
       gameUrl,
-      imageUrl: item.coverHorizontal,
+      imageUrl: toCoverTile(item.coverHorizontal),
       tags: tags.length > 0 ? tags : undefined,
     };
   }

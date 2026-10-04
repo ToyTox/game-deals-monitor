@@ -44,8 +44,8 @@ function historyHtml(offer) {
         ${offer.priceHistory.map(h => `
           <li>
             <strong>${esc(fmtDate(h.createdAt))}</strong><br>
-            Цена: ${esc(fmtPrice(h.oldPrice, offer.currency))} → ${esc(fmtPrice(h.newPrice, offer.currency))}<br>
-            Скидка: ${h.oldDiscount}% → ${h.newDiscount}%
+            Цена: ${esc(fmtPrice(h.oldPrice, offer.currency))} ${icon('arrow-right')} ${esc(fmtPrice(h.newPrice, offer.currency))}<br>
+            Скидка: ${h.oldDiscount}% ${icon('arrow-right')} ${h.newDiscount}%
           </li>
         `).join('')}
       </ul>
@@ -69,7 +69,7 @@ function offersHtml(offers) {
       <td>${offerPriceHtml(offer)}</td>
       <td>${offer.discountPercent > 0 ? `<span class="badge badge-discount">-${offer.discountPercent}%</span>` : '—'}</td>
       <td>${offer.saleEndDate ? esc(fmtDate(offer.saleEndDate)) : '—'}</td>
-      <td><a href="${esc(offer.gameUrl)}" target="_blank" rel="noopener">Купить ↗</a></td>
+      <td><a href="${esc(offer.gameUrl)}" target="_blank" rel="noopener">Купить ${icon('arrow-right', 'icon-external')}</a></td>
     </tr>
   `).join('');
 
@@ -96,7 +96,7 @@ function renderGame(game) {
 
   const imgHtml = game.imageUrl
     ? `<img class="game-img" src="${esc(game.imageUrl)}" alt="${esc(game.title)}">`
-    : '<div class="game-img placeholder">🎮</div>';
+    : '<div class="game-img placeholder"></div>';
 
   const maxDiscount = game.offers.reduce((acc, o) => Math.max(acc, o.discountPercent), 0);
   const badgesHtml = `
@@ -131,16 +131,9 @@ function renderGame(game) {
     <p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>
   `;
 
-  // Битая обложка — подменяем заглушкой (инлайновый onerror запрещён)
+  // Битая обложка: повторы, затем заглушка (инлайновый onerror запрещён)
   const img = root.querySelector('img.game-img');
-  if (img) {
-    img.addEventListener('error', () => {
-      const stub = document.createElement('div');
-      stub.className = 'game-img placeholder';
-      stub.textContent = '🎮';
-      img.replaceWith(stub);
-    });
-  }
+  if (img) watchImage(img);
 
   root.hidden = false;
 }
