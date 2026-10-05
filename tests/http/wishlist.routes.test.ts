@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { ProfileError } from '../../src/services/steamProfileService.js';
+import { prisma, resetDb, seedOffer } from '../helpers/db.js';
 import { WishlistError, type WishlistItem } from '../../src/services/steamWishlistService.js';
 
 // Роут не должен ходить в сеть: сервис заменяем целиком. Форма с default обязательна —
@@ -11,7 +12,7 @@ vi.mock('../../src/services/steamWishlistService.js', async (importOriginal) => 
   const actual = await importOriginal<typeof import('../../src/services/steamWishlistService.js')>();
   return {
     ...actual,
-    default: { getWishlist: vi.fn(), resolveSteamId: vi.fn(), resetCache: vi.fn() },
+    default: { getWishlist: vi.fn(), getApp: vi.fn(), resolveSteamId: vi.fn(), resetCache: vi.fn() },
   };
 });
 
@@ -25,6 +26,8 @@ const mockedGetProfile = steamProfileService.getProfile as unknown as Mock;
 
 const { default: steamWishlistService } = await import('../../src/services/steamWishlistService.js');
 const mockedGetWishlist = steamWishlistService.getWishlist as unknown as Mock;
+
+const mockedGetApp = steamWishlistService.getApp as unknown as Mock;
 
 const app = createApp();
 
@@ -64,8 +67,9 @@ function mockWishlist(items: WishlistItem[], truncated = false) {
 const titles = (body: { games: { title: string }[] }) => body.games.map((g) => g.title);
 
 describe('GET /api/wishlist', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockedGetWishlist.mockReset();
+    await resetDb();
   });
 
   it('без user отвечает 400 и в Steam не ходит', async () => {
@@ -237,6 +241,125 @@ describe('GET /api/wishlist', () => {
     mockedGetWishlist.mockRejectedValue(new Error('что-то упало'));
 
     await request(app).get(`/api/wishlist?user=${STEAM_ID}`).expect(500);
+  });
+});
+
+describe('GET /api/wishlist: slug игры из базы', () => {
+  beforeEach(async () => {
+    mockedGetWishlist.mockReset();
+    await resetDb();
+  });
+
+  it('находит игру по Steam-офферу с тем же appId, точное совпадение appId', async () => {
+    const offer = await seedOffer({ title: 'Совсем другое название в базе' });
+    await prisma.offer.update({
+      where: { id: offer.id },
+      data: { gameUrl: 'https://store.steampowered.com/app/123/Some_Game/' },
+    });
+    mockWishlist([
+      item({ appId: 123, title: 'Some Game' }),
+      item({ appId: 12, title: 'Other Game' }),
+    ]);
+
+    const res = await request(app).get(`/api/wishlist?user=${STEAM_ID}`).expect(200);
+    const bySlug = Object.fromEntries(res.body.games.map((g: { appId: number; slug?: string }) => [g.appId, g.slug]));
+
+    expect(bySlug[123]).toBe('sovsem-drugoe-nazvanie-v-baze');
+    expect(bySlug[12]).toBeUndefined();
+  });
+
+  it('если оффера Steam нет, сопоставляет по нормализованному названию', async () => {
+    await seedOffer({ title: 'Dead Space', platform: 'gog' });
+    mockWishlist([
+      item({ appId: 1, title: 'Dead Space™' }),
+      item({ appId: 2, title: 'Нет такой в базе' }),
+    ]);
+
+    const res = await request(app).get(`/api/wishlist?user=${STEAM_ID}`).expect(200);
+    const games = res.body.games as { appId: number; slug?: string }[];
+
+    expect(games.find((g) => g.appId === 1)?.slug).toBe('dead-space');
+    expect(games.find((g) => g.appId === 2)).not.toHaveProperty('slug');
+  });
+
+  it('не портит позиции в кэше сервиса', async () => {
+    await seedOffer({ title: 'Dead Space' });
+    const items = [item({ appId: 1, title: 'Dead Space' })];
+    mockWishlist(items);
+
+    await request(app).get(`/api/wishlist?user=${STEAM_ID}`).expect(200);
+
+    expect(items[0]).not.toHaveProperty('slug');
+  });
+});
+
+describe('GET /api/wishlist/app/:appId', () => {
+  const steamApp = {
+    id: null,
+    slug: null,
+    appId: 620,
+    title: 'Portal 2',
+    kind: 'game',
+    imageUrl: null,
+    description: 'Головоломка',
+    createdAt: null,
+    updatedAt: null,
+    tags: [],
+    offers: [{ platform: 'steam', currentPrice: 385, priceHistory: [] }],
+  };
+
+  beforeEach(async () => {
+    mockedGetApp.mockReset();
+    await resetDb();
+  });
+
+  it('отдаёт игру Steam без slug, если её нет в базе', async () => {
+    mockedGetApp.mockResolvedValue(steamApp);
+
+    const res = await request(app).get('/api/wishlist/app/620').expect(200);
+
+    expect(res.body).toMatchObject({ appId: 620, title: 'Portal 2', slug: null, tags: [] });
+    expect(mockedGetApp).toHaveBeenCalledWith(620);
+  });
+
+  it('отдаёт slug, если игра есть в базе', async () => {
+    await seedOffer({ title: 'Portal 2' });
+    mockedGetApp.mockResolvedValue(steamApp);
+
+    const res = await request(app).get('/api/wishlist/app/620').expect(200);
+
+    expect(res.body.slug).toBe('portal-2');
+  });
+
+  it('невалидный appId — 400 без похода в Steam', async () => {
+    await request(app).get('/api/wishlist/app/abc').expect(400);
+    await request(app).get('/api/wishlist/app/0').expect(400);
+    await request(app).get('/api/wishlist/app/-5').expect(400);
+    await request(app).get('/api/wishlist/app/12x').expect(400);
+
+    expect(mockedGetApp).not.toHaveBeenCalled();
+  });
+
+  it('позиция, которой Steam не знает, — 404', async () => {
+    mockedGetApp.mockRejectedValue(new WishlistError('not_found', 'Игра не найдена в Steam'));
+
+    const res = await request(app).get('/api/wishlist/app/999').expect(404);
+
+    expect(res.body.code).toBe('not_found');
+  });
+
+  it('сбой Steam — 502', async () => {
+    mockedGetApp.mockRejectedValue(new WishlistError('upstream', 'Steam не ответил'));
+
+    const res = await request(app).get('/api/wishlist/app/620').expect(502);
+
+    expect(res.body.code).toBe('upstream');
+  });
+
+  it('прочая ошибка — 500', async () => {
+    mockedGetApp.mockRejectedValue(new Error('упало'));
+
+    await request(app).get('/api/wishlist/app/620').expect(500);
   });
 });
 

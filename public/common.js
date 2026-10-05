@@ -187,12 +187,13 @@ function renderCards(grid, games, expanded = false) {
 
     // Заголовок — ссылка на страницу игры, растянутая на всю карточку (.card-link::after),
     // поэтому вложенных ссылок нет, а фокус и Enter работают как у обычной ссылки.
-    // У позиций вишлиста нет записи в базе (и slug'а) — там ссылка ведёт прямо
-    // в магазин, без дубля ниже.
-    const titleHtml = game.slug
-      ? `<h3><a class="card-link" href="/game.html?slug=${encodeURIComponent(game.slug)}">${esc(game.title)}</a></h3>
-         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ${icon('arrow-right', 'icon-external')}</a></p>`
-      : `<h3><a class="card-link" href="${esc(game.gameUrl)}" target="_blank" rel="noopener">${esc(game.title)}</a></h3>`;
+    // У позиций вишлиста записи в базе может не быть: их страница открывается
+    // по appId из Steam. Ссылка в магазин — отдельной строкой у всех.
+    const gamePageUrl = game.slug
+      ? `/game.html?slug=${encodeURIComponent(game.slug)}`
+      : `/game.html?steamAppId=${encodeURIComponent(game.appId)}`;
+    const titleHtml = `<h3><a class="card-link" href="${gamePageUrl}">${esc(game.title)}</a></h3>
+         <p class="card-store-link"><a href="${esc(game.gameUrl)}" target="_blank" rel="noopener">В магазине ${icon('arrow-right', 'icon-external')}</a></p>`;
 
     // Кнопка динамики цены для Steam, GOG и Epic: рисуется, только если ITAD включён.
     // appid — из вишлиста или ссылки на игру; без него запрос уходит по названию

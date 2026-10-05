@@ -9,6 +9,10 @@
         "name": "Portal 2",
         "store_url_path": "app/620/Portal_2",
         "appid": 620,
+        "basic_info": {
+          "short_description": "Знаменитая игра-головоломка от Valve",
+          "publishers": [{ "name": "Valve", "creator_clan_account_id": 4145017 }]
+        },
         "assets": {
           "asset_url_format": "steam/apps/620/${FILENAME}?t=1745363004",
           "main_capsule": "capsule_616x353.jpg",

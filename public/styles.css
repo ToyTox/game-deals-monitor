@@ -1100,9 +1100,14 @@ input[type="checkbox"] {
   box-shadow: inset 0 0 0 2px var(--muted-ring);
 }
 
+/* Тег и кнопка прижаты к низу карточки: в ряду они на одном уровне */
 .card-tag-single {
   align-self: flex-start;
-  margin: 0.5rem 0 0;
+  margin: auto 0 0;
+}
+
+.card-content > :not(.card-tag-single) + .btn-price-dynamics {
+  margin-top: auto;
 }
 
 .card h3 {
