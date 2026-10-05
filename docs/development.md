@@ -48,6 +48,8 @@ game-deals-monitor/
 │   └── schema.prisma        # модели Game, PriceHistory, UpdateLog
 ├── public/                  # веб-интерфейс: index.html + app.js (витрина),
 │                            # admin.html + admin.js (ручки API), common.js, styles.css
+│   ├── fonts/               # пиксельный шрифт Press Start 2P (SIL OFL 1.1) и текст лицензии
+│   └── icons/               # пиксельные SVG-иконки (подключаются масками в styles.css)
 ├── src/
 │   ├── index.ts             # композиция: env, cron, graceful shutdown
 │   ├── server.ts            # startServer(): проверка БД, listen, фоновый прогон парсеров
@@ -95,6 +97,12 @@ game-deals-monitor/
 ├── tsconfig.test.json
 └── package.json
 ```
+
+## Оформление
+
+Сайт оформлен в пиксельном стиле. Шрифт — [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) под лицензией SIL OFL 1.1 (с кириллицей): файл и текст лицензии лежат в `public/fonts/`, подключается через `@font-face` в `styles.css`, внешних CDN нет. Иконки — локальные SVG в `public/icons/`; в разметке это `<span class="icon icon-<имя>">`, цвет берётся из текста (CSS-маска). В JS-шаблонах для этого есть `icon(name)` из `common.js`. Картинкам `image-rendering: pixelated` не задаётся: обложки остаются чёткими.
+
+Загрузка обложек: битую картинку `common.js` перезагружает несколько раз с паузой и параметром `_retry` (обход кэша ошибки), и только потом ставит заглушку с исходным URL в `data-img-src`. При событии `online` и при возврате на вкладку заглушки снова превращаются в картинки.
 
 ## Тесты
 

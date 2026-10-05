@@ -173,7 +173,7 @@ function initWishlist() {
 
   $('wishlist-clear').addEventListener('click', forgetWishlist);
   $('wishlist-decor-off').addEventListener('click', optOutProfileDecor);
-  $('wishlist-avatar').addEventListener('error', () => { $('wishlist-avatar').hidden = true; });
+  watchImage($('wishlist-avatar'), hideFailedImage);
 
   initProfileBackground();
 
@@ -251,6 +251,7 @@ function optOutProfileDecor() {
 function applyProfileDecor(profile) {
   currentProfile = profile;
   const avatar = $('wishlist-avatar');
+  delete avatar.dataset.imgFailed;
 
   if (profile && profile.avatarUrl) {
     avatar.src = profile.avatarUrl;
@@ -478,9 +479,9 @@ function renderPager(key) {
 
   el.innerHTML = `
     <div class="pager-nav">
-      <button type="button" class="pager-btn" data-page="prev" ${s.page <= 1 ? 'disabled' : ''} aria-label="Предыдущая страница">←</button>
+      <button type="button" class="pager-btn" data-page="prev" ${s.page <= 1 ? 'disabled' : ''} aria-label="Предыдущая страница">${icon('arrow-left')}</button>
       ${nums}
-      <button type="button" class="pager-btn" data-page="next" ${s.page >= pages ? 'disabled' : ''} aria-label="Следующая страница">→</button>
+      <button type="button" class="pager-btn" data-page="next" ${s.page >= pages ? 'disabled' : ''} aria-label="Следующая страница">${icon('arrow-right')}</button>
     </div>
     <label class="pager-size">
       На странице:

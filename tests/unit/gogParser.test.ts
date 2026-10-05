@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import axios from 'axios';
-import GOGParser from '../../src/parsers/gogParsers.js';
+import GOGParser, { toCoverTile } from '../../src/parsers/gogParsers.js';
 import { readJsonFixture } from '../helpers/fixtures.js';
 
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
@@ -297,5 +297,28 @@ describe('GOGParser', () => {
         discountPercent: 0,
       });
     });
+  });
+});
+
+describe('обложки GOG', () => {
+  const hash = '5a4a5c397cdce1d6336ff3676f7f0272200c2b7beb2682a4650538994ccba82d';
+
+  it('оригинал заменяется лёгкой плиткой по тому же hash', async () => {
+    mockSinglePage([product({ coverHorizontal: `https://images.gog-statics.com/${hash}.png` })]);
+
+    expect((await new GOGParser().parse())[0].imageUrl).toBe(
+      `https://images.gog-statics.com/${hash}_product_tile_398.jpg`
+    );
+  });
+
+  it('уже уменьшенный вариант не меняется', () => {
+    const tile = `https://images.gog-statics.com/${hash}_product_tile_398.jpg`;
+
+    expect(toCoverTile(tile)).toBe(tile);
+  });
+
+  it('чужие URL остаются как есть', () => {
+    expect(toCoverTile('https://cdn.test/cp2077.png')).toBe('https://cdn.test/cp2077.png');
+    expect(toCoverTile(undefined)).toBeUndefined();
   });
 });
