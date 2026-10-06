@@ -1,7 +1,8 @@
 'use strict';
 
-// Страница одной игры: /game.html?slug=<slug>.
-// Данные — GET /api/games/slug/:slug, помощники (api, esc, fmtPrice, fmtDate,
+// Страница одной игры: /game.html?slug=<slug> или /game.html?steamAppId=<appId>.
+// Данные — GET /api/games/slug/:slug, для игр вишлиста без записи в базе —
+// GET /api/wishlist/app/:appId в той же форме. Помощники (api, esc, fmtPrice, fmtDate,
 // KIND_LABELS) приходят из common.js.
 
 function setState(cls, msg, html = null) {
@@ -107,7 +108,7 @@ function renderGame(game) {
       <span class="badge badge-platform">Магазинов: ${game.offers.length}</span>
     </div>`;
 
-  const tagsHtml = game.tags.length > 0
+  const tagsHtml = game.tags && game.tags.length > 0
     ? `<ul class="card-tags">${game.tags.map(t => `<li class="card-tag">${esc(t.name)}</li>`).join('')}</ul>`
     : '';
 
@@ -126,9 +127,9 @@ function renderGame(game) {
       </div>
     </div>
     ${offersHtml(game.offers)}
-    <p class="card-meta">ID: ${esc(game.id)} · slug: ${esc(game.slug)}</p>
-    <p class="card-meta">Создано: ${esc(fmtDate(game.createdAt))}</p>
-    <p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>
+    ${game.id ? `<p class="card-meta">ID: ${esc(game.id)} · slug: ${esc(game.slug)}</p>` : ''}
+    ${game.createdAt ? `<p class="card-meta">Создано: ${esc(fmtDate(game.createdAt))}</p>` : ''}
+    ${game.updatedAt ? `<p class="card-meta">Обновлено: ${esc(fmtDate(game.updatedAt))}</p>` : ''}
   `;
 
   // Битая обложка: повторы, затем заглушка (инлайновый onerror запрещён)
@@ -138,8 +139,52 @@ function renderGame(game) {
   root.hidden = false;
 }
 
+function showGame(game) {
+  clearState();
+  document.title = `${game.title} — Game Deals Monitor`;
+  renderGame(game);
+}
+
+// Игра из вишлиста: если она есть в базе, открываем обычную страницу по slug
+async function loadSteamGame(appId) {
+  if (!/^\d+$/.test(appId) || Number(appId) <= 0) {
+    return setState('state-empty', '', 'Некорректный идентификатор игры Steam. <a href="/">Вернуться к списку</a>');
+  }
+
+  setState('state-loading', 'Загрузка…');
+
+  try {
+    const app = await api(`/api/wishlist/app/${appId}`);
+
+    if (app.slug) {
+      // replaceState: в истории остаётся одна запись, «назад» ведёт к списку
+      history.replaceState(null, '', `/game.html?slug=${encodeURIComponent(app.slug)}`);
+      try {
+        return showGame(await api(`/api/games/slug/${encodeURIComponent(app.slug)}`));
+      } catch {
+        // Страница по slug недоступна — показываем то, что отдал Steam
+      }
+    }
+
+    showGame(app);
+  } catch (e) {
+    $('game-root').hidden = true;
+    if (/не найдена/i.test(e.message)) {
+      setState('state-empty', '', 'Steam не знает такой игры. <a href="/">Вернуться к списку</a>');
+    } else {
+      setState('state-error', `Не удалось загрузить игру из Steam: ${e.message}`);
+    }
+  }
+}
+
 async function loadGame() {
-  const slug = new URLSearchParams(location.search).get('slug');
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('slug');
+  const steamAppId = params.get('steamAppId');
+
+  if (!slug && steamAppId) {
+    return loadSteamGame(steamAppId);
+  }
 
   if (!slug) {
     return setState('state-empty', '', 'Игра не указана. <a href="/">Вернуться к списку</a>');
@@ -148,10 +193,7 @@ async function loadGame() {
   setState('state-loading', 'Загрузка…');
 
   try {
-    const game = await api(`/api/games/slug/${encodeURIComponent(slug)}`);
-    clearState();
-    document.title = `${game.title} — Game Deals Monitor`;
-    renderGame(game);
+    showGame(await api(`/api/games/slug/${encodeURIComponent(slug)}`));
   } catch (e) {
     $('game-root').hidden = true;
     if (/не найдена/i.test(e.message)) {

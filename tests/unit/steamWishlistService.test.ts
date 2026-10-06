@@ -234,3 +234,93 @@ describe('SteamWishlistService: чанки, потолок и кэш', () => {
     expect(mockedGet.mock.calls.length).toBeGreaterThan(afterFirst);
   });
 });
+
+describe('SteamWishlistService: одна игра', () => {
+  beforeEach(() => {
+    mockedGet.mockReset();
+  });
+
+  it('собирает игру в форме страницы игры: обложка, описание, одно предложение Steam', async () => {
+    mockSteam();
+
+    const app = await service().getApp(1282100);
+
+    expect(app).toMatchObject({
+      id: null,
+      slug: null,
+      appId: 1282100,
+      title: 'REMNANT II®',
+      kind: 'game',
+      tags: [],
+    });
+    expect(app.imageUrl).toContain('/steam/apps/1282100/header.jpg');
+    expect(app.offers).toHaveLength(1);
+    expect(app.offers[0]).toMatchObject({
+      platform: 'steam',
+      storeName: 'Steam',
+      currentPrice: 573,
+      originalPrice: 2869,
+      currentPriceRub: 573,
+      discountPercent: 80,
+      gameUrl: 'https://store.steampowered.com/app/1282100/REMNANT_II',
+      priceHistory: [],
+    });
+    expect(app.offers[0].saleEndDate).toEqual(new Date(1790614800 * 1000));
+  });
+
+  it('просит у Steam базовую информацию и берёт описание из basic_info', async () => {
+    mockSteam();
+
+    const app = await service().getApp(620);
+
+    expect(app.description).toBe('Знаменитая игра-головоломка от Valve');
+    const payload = JSON.parse(mockedGet.mock.calls[0][1].params.input_json);
+    expect(payload.data_request.include_basic_info).toBe(true);
+    expect(payload.ids).toEqual([{ appid: 620 }]);
+  });
+
+  it('без basic_info описание пустое', async () => {
+    mockSteam();
+
+    expect((await service().getApp(1282100)).description).toBeNull();
+  });
+
+  it('недоступная в регионе позиция отдаётся без цены', async () => {
+    mockSteam();
+
+    const app = await service().getApp(1091500);
+
+    expect(app.title).toBe('Cyberpunk 2077');
+    expect(app.offers[0]).toMatchObject({ currentPrice: null, currency: null, isFree: false });
+  });
+
+  it('позиция, которой Steam не знает, — not_found', async () => {
+    mockSteam();
+
+    await expect(service().getApp(999999999)).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('сбой Steam — upstream, и в кэш он не попадает', async () => {
+    mockedGet.mockRejectedValue(new Error('timeout'));
+    const sut = service();
+
+    await expect(sut.getApp(620)).rejects.toMatchObject({ code: 'upstream' });
+
+    mockSteam();
+    await expect(sut.getApp(620)).resolves.toMatchObject({ appId: 620 });
+  });
+
+  it('повторный вызов берётся из кэша, resetCache его сбрасывает', async () => {
+    mockSteam();
+    const sut = service();
+
+    await sut.getApp(620);
+    const afterFirst = mockedGet.mock.calls.length;
+    await sut.getApp(620);
+    expect(mockedGet.mock.calls.length).toBe(afterFirst);
+
+    sut.resetCache();
+    await sut.getApp(620);
+    expect(mockedGet.mock.calls.length).toBeGreaterThan(afterFirst);
+  });
+});

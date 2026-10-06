@@ -4,9 +4,70 @@ import steamWishlistService, {
   type WishlistItem,
 } from '../services/steamWishlistService.js';
 
+import prisma from '../database.js';
+import { normalizeTitle } from '../lib/titleNormalizer.js';
 import steamProfileService, { ProfileError } from '../services/steamProfileService.js';
 
 const router = Router();
+
+/** SQLite принимает не больше 999 параметров в запросе, поэтому ищем пачками. */
+const LOOKUP_CHUNK = 400;
+
+function chunked<T>(values: T[]): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < values.length; i += LOOKUP_CHUNK) {
+    chunks.push(values.slice(i, i + LOOKUP_CHUNK));
+  }
+  return chunks;
+}
+
+/**
+ * Slug игр из базы для позиций вишлиста: appId -> slug. Сначала по Steam-офферу
+ * с тем же appId в gameUrl, для остальных — по нормализованному названию, как
+ * в saveGames. Запросов столько же, сколько пачек, а не позиций.
+ */
+async function findSlugs(items: { appId: number; title: string }[]): Promise<Map<number, string>> {
+  const slugs = new Map<number, string>();
+  const wanted = new Set(items.map((item) => item.appId));
+
+  for (const ids of chunked([...wanted])) {
+    const offers = await prisma.offer.findMany({
+      where: { storeId: 'steam', OR: ids.map((id) => ({ gameUrl: { contains: `/app/${id}` } })) },
+      select: { gameUrl: true, game: { select: { slug: true } } },
+      orderBy: { id: 'asc' },
+    });
+
+    for (const offer of offers) {
+      // contains ловит и /app/12 внутри /app/123 — точный appId берём из ссылки
+      const appId = Number(offer.gameUrl.match(/\/app\/(\d+)/)?.[1]);
+      if (wanted.has(appId) && !slugs.has(appId)) {
+        slugs.set(appId, offer.game.slug);
+      }
+    }
+  }
+
+  const byTitle = new Map<string, number[]>();
+  for (const item of items) {
+    if (slugs.has(item.appId)) continue;
+    const key = normalizeTitle(item.title);
+    byTitle.set(key, [...(byTitle.get(key) ?? []), item.appId]);
+  }
+
+  for (const keys of chunked([...byTitle.keys()])) {
+    const games = await prisma.game.findMany({
+      where: { normalizedTitle: { in: keys } },
+      select: { normalizedTitle: true, slug: true },
+    });
+
+    for (const game of games) {
+      for (const appId of byTitle.get(game.normalizedTitle) ?? []) {
+        slugs.set(appId, game.slug);
+      }
+    }
+  }
+
+  return slugs;
+}
 
 /**
  * Сортировки списка желаемого. Ключи первых пяти совпадают с GAME_SORTS в gameService,
@@ -82,6 +143,36 @@ router.get('/profile', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/wishlist/app/:appId
+ * Одна игра Steam в форме GET /api/games/slug/:slug — для страницы игры, которой нет в базе.
+ * Если игра в базе есть, в ответе её slug, и фронт переходит на обычную страницу.
+ */
+router.get('/app/:appId', async (req: Request, res: Response) => {
+  if (!/^\d+$/.test(req.params.appId) || Number(req.params.appId) <= 0) {
+    return res.status(400).json({ error: 'appId должен быть положительным числом' });
+  }
+
+  const appId = Number(req.params.appId);
+
+  try {
+    const app = await steamWishlistService.getApp(appId);
+    const slug = (await findSlugs([app])).get(appId) ?? null;
+
+    res.json({ ...app, slug });
+  } catch (error) {
+    if (error instanceof WishlistError) {
+      const status = error.code === 'upstream' ? 502 : 404;
+      return res.status(status).json({ error: error.message, code: error.code });
+    }
+
+    res.status(500).json({
+      error: 'Ошибка при получении игры Steam',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * GET /api/wishlist
  * Список желаемого Steam по SteamID, ссылке на профиль или нику.
  */
@@ -115,8 +206,16 @@ router.get('/', async (req: Request, res: Response) => {
       (a, b) => WISHLIST_SORTS[sort](a, b) || a.appId - b.appId
     );
 
+    // Slug подмешиваем в копии: items лежат в кэше сервиса, а slug в базе может смениться.
+    const page = sorted.slice(offset, offset + limit);
+    const slugs = await findSlugs(page);
+    const games = page.map((item) => {
+      const slug = slugs.get(item.appId);
+      return slug ? { ...item, slug } : item;
+    });
+
     res.json({
-      games: sorted.slice(offset, offset + limit),
+      games,
       total: sorted.length,
       limit,
       offset,

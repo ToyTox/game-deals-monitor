@@ -39,7 +39,7 @@ describe('отрисовка карточек', () => {
     for (const withSlug of [true, false]) {
       for (const itad of [true, false]) {
         it(`${section}, ${withSlug ? 'со slug' : 'без slug'}, ITAD ${itad ? 'включён' : 'выключен'}`, async () => {
-          const games = [game(withSlug ? { id: 1, slug: 'test-game' } : {})];
+          const games = [game(withSlug ? { id: 1, slug: 'test-game' } : { appId: 123 })];
           const grid = await open(section, games, itad);
 
           const card = grid.querySelector('.card')!;
@@ -50,13 +50,8 @@ describe('отрисовка карточек', () => {
           expect(card.querySelector('.card-dynamics')).not.toBeNull();
 
           const titleLink = card.querySelector('h3 a')!.getAttribute('href')!;
-          if (withSlug) {
-            expect(titleLink).toBe('/game.html?slug=test-game');
-            expect(card.querySelector('.card-store-link a')).not.toBeNull();
-          } else {
-            expect(titleLink).toBe((games[0] as { gameUrl: string }).gameUrl);
-            expect(card.querySelector('.card-store-link')).toBeNull();
-          }
+          expect(titleLink).toBe(withSlug ? '/game.html?slug=test-game' : '/game.html?steamAppId=123');
+          expect(card.querySelector('.card-store-link a')!.getAttribute('href')).toBe(game().gameUrl);
 
           expect(card.querySelector('.btn-price-dynamics') !== null).toBe(itad);
         });
@@ -108,10 +103,20 @@ describe('компактная карточка', () => {
     expect(page.window.location.href).toBe('http://localhost/');
   });
 
-  it('позиция без slug ведёт в магазин в новой вкладке', async () => {
-    const grid = await open('wishlist', [game()], false);
+  it('позиция вишлиста без slug ведёт на страницу игры по appId, магазин — отдельной ссылкой в новой вкладке', async () => {
+    const grid = await open('wishlist', [game({ appId: 123 })], false);
     const link = grid.querySelector('.card a.card-link')!;
-    expect(link.getAttribute('href')).toBe(game().gameUrl);
-    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('href')).toBe('/game.html?steamAppId=123');
+    expect(link.getAttribute('target')).toBeNull();
+
+    const store = grid.querySelector('.card .card-store-link a')!;
+    expect(store.getAttribute('href')).toBe(game().gameUrl);
+    expect(store.getAttribute('target')).toBe('_blank');
+  });
+
+  it('позиция вишлиста со slug ведёт на обычную страницу игры', async () => {
+    const grid = await open('wishlist', [game({ appId: 123, slug: 'test-game' })], false);
+    expect(grid.querySelector('.card a.card-link')!.getAttribute('href')).toBe('/game.html?slug=test-game');
+    expect(grid.querySelector('.card .card-store-link a')).not.toBeNull();
   });
 });

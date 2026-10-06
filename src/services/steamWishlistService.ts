@@ -68,6 +68,44 @@ export interface WishlistItem {
   priority: number;
 }
 
+/**
+ * Одна игра Steam в форме GET /api/games/slug/:slug: страница игры рисует её тем же кодом.
+ * Записи в базе нет, поэтому id и даты пустые, а истории цен и тегов нет вовсе.
+ */
+export interface WishlistApp {
+  id: null;
+  slug: null;
+  appId: number;
+  title: string;
+  kind: GameKind;
+  imageUrl: string | null;
+  description: string | null;
+  createdAt: null;
+  updatedAt: null;
+  tags: [];
+  offers: [WishlistAppOffer];
+}
+
+export interface WishlistAppOffer {
+  id: null;
+  platform: 'steam';
+  storeId: 'steam';
+  storeName: string;
+  storeKind: 'official';
+  originalPrice: number | null;
+  currentPrice: number | null;
+  currency: string | null;
+  originalPriceRub: number | null;
+  currentPriceRub: number | null;
+  discountPercent: number;
+  isFree: boolean;
+  gameUrl: string;
+  saleEndDate: Date | null;
+  createdAt: null;
+  updatedAt: null;
+  priceHistory: [];
+}
+
 export interface Wishlist {
   steamId: string;
   items: WishlistItem[];
@@ -96,6 +134,7 @@ interface RawStoreItem {
   name?: string;
   store_url_path?: string;
   assets?: { asset_url_format?: string };
+  basic_info?: { short_description?: string };
   best_purchase_option?: RawPurchaseOption;
 }
 
@@ -120,6 +159,7 @@ function fromUnix(seconds?: number): Date | null {
 
 export class SteamWishlistService {
   private cache = new Map<string, { value: Wishlist; at: number }>();
+  private appCache = new Map<number, { value: WishlistApp; at: number }>();
 
   /**
    * Приводит ввод пользователя к SteamID64. Принимает сам идентификатор, ссылку на
@@ -346,9 +386,73 @@ export class SteamWishlistService {
     return value;
   }
 
+  /**
+   * Одна игра Steam по appId: название, обложка, описание и предложение магазина.
+   * Результат кэшируется на CACHE_TTL_MS; ошибки в кэш не попадают.
+   */
+  async getApp(appId: number): Promise<WishlistApp> {
+    const cached = this.appCache.get(appId);
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      return cached.value;
+    }
+
+    const raw = (await this.fetchStoreItems([appId])).get(appId);
+    if (!raw?.name) {
+      throw new WishlistError('not_found', 'Игра не найдена в Steam');
+    }
+
+    const item = await this.toItem({ appid: appId }, raw);
+
+    const value: WishlistApp = {
+      id: null,
+      slug: null,
+      appId,
+      title: item.title,
+      kind: item.kind,
+      imageUrl: item.imageUrl,
+      description: raw.basic_info?.short_description || null,
+      createdAt: null,
+      updatedAt: null,
+      tags: [],
+      offers: [
+        {
+          id: null,
+          platform: 'steam',
+          storeId: 'steam',
+          storeName: 'Steam',
+          storeKind: 'official',
+          originalPrice: item.originalPrice,
+          currentPrice: item.currentPrice,
+          currency: item.currency,
+          originalPriceRub: await currencyService.toRub(item.originalPrice, item.currency),
+          currentPriceRub: item.currentPriceRub,
+          discountPercent: item.discountPercent,
+          isFree: item.isFree,
+          gameUrl: item.gameUrl,
+          saleEndDate: item.saleEndDate,
+          createdAt: null,
+          updatedAt: null,
+          priceHistory: [],
+        },
+      ],
+    };
+
+    this.appCache.set(appId, { value, at: Date.now() });
+
+    if (this.appCache.size > CACHE_MAX_ENTRIES) {
+      const oldest = this.appCache.keys().next();
+      if (!oldest.done) {
+        this.appCache.delete(oldest.value);
+      }
+    }
+
+    return value;
+  }
+
   /** Сбрасывает кэш. Нужен тестам. */
   resetCache(): void {
     this.cache.clear();
+    this.appCache.clear();
   }
 }
 
