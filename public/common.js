@@ -273,3 +273,22 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e
   try { stored = localStorage.getItem('theme'); } catch (err) {}
   if (!stored) applyTheme(e.matches ? 'light' : 'dark');
 });
+
+// Оформление: пиксельное (по умолчанию) или обычное; значение уже проставлено инлайн-скриптом в <head>
+function applyStyle(style) {
+  document.documentElement.dataset.style = style;
+  const btn = $('style-toggle');
+  // подпись показывает, что включится по клику
+  const label = style === 'pixel' ? 'Включить обычное оформление' : 'Включить пиксельное оформление';
+  btn.textContent = style === 'pixel' ? 'Aa' : 'PX';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+
+applyStyle(document.documentElement.dataset.style === 'plain' ? 'plain' : 'pixel');
+
+$('style-toggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.style === 'plain' ? 'pixel' : 'plain';
+  applyStyle(next);
+  try { localStorage.setItem('style', next); } catch (e) {}
+});

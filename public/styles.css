@@ -13,7 +13,7 @@
 
   --bg: #0f0f0f;
   --panel: #1a1a1a;
-  --border: #3f3f56;
+  --border: #333;
   --text: #e0e0e0;
   --muted: #999;
   --accent: #4a9eff;
@@ -41,12 +41,6 @@
   --warning-soft: rgba(255, 140, 0, 0.2);
 
   --bg-dim: rgba(15, 15, 15, 0.75);
-
-  /* Пиксельное оформление: тени без размытия и фаски кнопок */
-  --outline: #000;
-  --shadow: rgba(0, 0, 0, 0.65);
-  --bevel-light: rgba(255, 255, 255, 0.3);
-  --bevel-dark: rgba(0, 0, 0, 0.3);
 }
 
 /* Светлая тема */
@@ -55,7 +49,7 @@
 
   --bg: #f5f6f8;
   --panel: #ffffff;
-  --border: #8a93a3;
+  --border: #d8dce2;
   --text: #1a1d21;
   --muted: #5f6672;
   --accent: #1667d6;
@@ -83,44 +77,21 @@
   --warning-soft: rgba(163, 90, 0, 0.14);
 
   --bg-dim: rgba(245, 246, 248, 0.8);
-
-  --outline: #1a1d21;
-  --shadow: rgba(26, 29, 33, 0.3);
-  --bevel-light: rgba(255, 255, 255, 0.45);
-  --bevel-dark: rgba(0, 0, 0, 0.22);
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  /* Пиксельный шрифт широкий: базовый размер меньше обычного, все rem считаются от него */
-  font-size: 12px;
-  font-synthesis: none;
-}
-
 html,
 body {
   margin: 0;
   padding: 0;
-  font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: var(--bg);
   color: var(--text);
-  line-height: 1.8;
-  -webkit-font-smoothing: none;
-}
-
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-}
-
-:focus-visible {
-  outline: 2px dashed var(--accent);
-  outline-offset: 2px;
+  line-height: 1.6;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 /* Фон профиля Steam: на всю страницу под контентом, поверх него затемнение */
@@ -166,7 +137,7 @@ body.has-profile-bg {
 
 header {
   background-color: var(--panel);
-  border-bottom: 4px solid var(--border);
+  border-bottom: 1px solid var(--border);
   padding: 1.5rem 2rem;
   position: sticky;
   top: 0;
@@ -214,6 +185,7 @@ header h1 {
   display: inline-block;
   width: 10px;
   height: 10px;
+  border-radius: 50%;
 }
 
 #health-dot.ok {
@@ -227,21 +199,21 @@ header h1 {
 button {
   background-color: var(--accent);
   color: var(--btn-text);
-  border: 2px solid var(--outline);
+  border: none;
   padding: 0.6rem 1.2rem;
-  font-weight: 400;
+  border-radius: 4px;
+  font-weight: 600;
   cursor: pointer;
-  /* Фаска и жёсткая тень; при нажатии кнопка «вдавливается» */
-  box-shadow: inset -2px -2px 0 var(--bevel-dark), inset 2px 2px 0 var(--bevel-light), 3px 3px 0 var(--shadow);
+  transition: all 0.2s;
 }
 
 button:hover {
-  filter: brightness(1.15);
+  opacity: 0.8;
+  transform: translateY(-1px);
 }
 
 button:active {
-  transform: translate(3px, 3px);
-  box-shadow: inset 2px 2px 0 var(--bevel-dark), 0 0 0 var(--shadow);
+  transform: translateY(0);
 }
 
 button:disabled {
@@ -281,7 +253,8 @@ button:disabled {
   height: 0.9em;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  animation: spin 0.7s steps(8) infinite;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
 
 @keyframes spin {
@@ -307,13 +280,14 @@ button:disabled {
   pointer-events: auto;
   background-color: var(--panel);
   color: var(--text);
-  position: relative;
-  border: 2px solid var(--border);
-  border-left: 6px solid var(--accent);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
   padding: 0.75rem 2.25rem 0.75rem 1rem;
-  box-shadow: 4px 4px 0 var(--shadow);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   animation: toast-in 0.2s ease-out;
+  position: relative;
 }
 
 /* Крестик закрытия (клик по любому месту уведомления закрывает его) */
@@ -386,6 +360,7 @@ button:disabled {
 }
 
 .toast-title {
+  font-weight: 600;
   margin: 0;
 }
 
@@ -437,9 +412,9 @@ button:disabled {
 .icon-btn {
   background-color: transparent;
   color: var(--text);
-  border: 2px solid var(--border);
-  width: 2.5rem;
-  height: 2.5rem;
+  border: 1px solid var(--border);
+  width: 2.25rem;
+  height: 2.25rem;
   padding: 0;
   font-size: 1.1rem;
   line-height: 1;
@@ -450,6 +425,7 @@ button:disabled {
 }
 
 .icon-btn:hover {
+  opacity: 1;
   border-color: var(--accent);
 }
 
@@ -479,10 +455,10 @@ h3 {
 /* Statistics Section */
 .stats-section {
   background-color: var(--panel);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 .stats-tiles {
@@ -494,15 +470,15 @@ h3 {
 
 .stat-tile {
   background-color: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 1.5rem;
   text-align: center;
 }
 
 .stat-value {
-  overflow-wrap: anywhere;
-  font-size: 1.4rem;
-  font-weight: 400;
+  font-size: 1.8rem;
+  font-weight: 700;
   color: var(--accent);
   margin-bottom: 0.5rem;
 }
@@ -520,13 +496,14 @@ h3 {
 
 .platform-stat {
   background-color: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 1rem;
   margin-bottom: 0.75rem;
 }
 
 .platform-name {
-  font-weight: 400;
+  font-weight: 600;
   color: var(--accent);
   margin-bottom: 0.25rem;
 }
@@ -548,7 +525,8 @@ h3 {
 
 .top-discounts li {
   background-color: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
@@ -567,10 +545,10 @@ h3 {
 /* API Section */
 .api-section {
   background-color: var(--panel);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 .api-cards {
@@ -581,7 +559,8 @@ h3 {
 
 .api-card {
   background-color: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 1.5rem;
 }
 
@@ -591,7 +570,7 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 1rem;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .form-group {
@@ -604,18 +583,20 @@ h3 {
 label {
   font-size: 0.9rem;
   color: var(--text);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 input[type="text"],
 input[type="number"],
 select {
   background-color: var(--input-bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   padding: 0.5rem 0.75rem;
+  border-radius: 4px;
   font-size: 0.9rem;
   font-family: inherit;
+  transition: border-color 0.2s;
 }
 
 input[type="text"]:focus,
@@ -650,11 +631,11 @@ input[type="checkbox"] {
 /* Catalog sections (free / deals) */
 .catalog-section {
   background-color: var(--panel);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
   scroll-margin-top: 6rem;
-  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 .section-head {
@@ -681,12 +662,6 @@ input[type="checkbox"] {
   color: inherit;
   font: inherit;
   cursor: pointer;
-  box-shadow: none;
-}
-
-.section-toggle:active {
-  transform: none;
-  box-shadow: none;
 }
 
 .section-toggle::after {
@@ -696,6 +671,7 @@ input[type="checkbox"] {
   background-color: var(--muted);
   -webkit-mask: url(/icons/chevron.svg) center / contain no-repeat;
   mask: url(/icons/chevron.svg) center / contain no-repeat;
+  transition: transform 0.2s;
 }
 
 .section-toggle[aria-expanded="false"]::after {
@@ -707,8 +683,9 @@ input[type="checkbox"] {
 }
 
 .section-toggle:focus-visible {
-  outline: 2px dashed var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 4px;
+  border-radius: 4px;
 }
 
 .catalog-section.is-collapsed > :not(.section-head) {
@@ -756,7 +733,8 @@ input[type="checkbox"] {
   padding: 0.5rem 0.75rem;
   background-color: var(--input-bg);
   color: var(--text);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   font-size: 0.9rem;
 }
 
@@ -764,8 +742,9 @@ input[type="checkbox"] {
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
+  border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .wishlist-form input:focus-visible {
@@ -783,10 +762,11 @@ input[type="checkbox"] {
 .chip {
   padding: 0.3rem 0.85rem;
   font-size: 0.85rem;
-  font-weight: 400;
+  font-weight: 500;
   background-color: var(--surface-alt);
   color: var(--text);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
 
 .chip:hover {
@@ -800,11 +780,11 @@ input[type="checkbox"] {
   background-color: var(--accent);
   border-color: var(--accent);
   color: var(--btn-text);
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .chip:focus-visible {
-  outline: 2px dashed var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -822,6 +802,7 @@ input[type="checkbox"] {
 
 .catalog-section > div[id$="-state"] {
   padding: 1rem;
+  border-radius: 6px;
   margin-bottom: 1rem;
 }
 
@@ -852,7 +833,8 @@ input[type="checkbox"] {
   font-size: 0.9rem;
   background-color: var(--surface-alt);
   color: var(--text);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -872,7 +854,7 @@ input[type="checkbox"] {
   background-color: var(--accent);
   border-color: var(--accent);
   color: var(--btn-text);
-  font-weight: 400;
+  font-weight: 600;
   cursor: default;
 }
 
@@ -907,16 +889,17 @@ input[type="checkbox"] {
   padding: 0.35rem 0.5rem;
   background-color: var(--input-bg);
   color: var(--text);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   font-size: 0.85rem;
 }
 
 /* Results Section */
 .results-section {
   background-color: var(--panel);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 2rem;
-  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 #result-title {
@@ -933,6 +916,7 @@ input[type="checkbox"] {
 
 #result-state {
   padding: 1rem;
+  border-radius: 6px;
   margin-bottom: 1rem;
   min-height: 1.5rem;
 }
@@ -940,19 +924,19 @@ input[type="checkbox"] {
 .state-loading {
   background-color: var(--accent-soft);
   color: var(--accent);
-  border: 2px solid var(--accent-ring);
+  border: 1px solid var(--accent-ring);
 }
 
 .state-error {
   background-color: var(--danger-soft);
   color: var(--danger);
-  border: 2px solid var(--danger-ring);
+  border: 1px solid var(--danger-ring);
 }
 
 .state-empty {
   background-color: var(--muted-soft);
   color: var(--muted);
-  border: 2px solid var(--muted-ring);
+  border: 1px solid var(--muted-ring);
 }
 
 /* Grid */
@@ -966,17 +950,18 @@ input[type="checkbox"] {
 .card {
   position: relative;
   background-color: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 4px 4px 0 var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
   height: 100%;
 }
 
 .card:hover {
   border-color: var(--accent);
-  box-shadow: 4px 4px 0 var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* Ссылка в заголовке растянута на всю карточку: клик в любом месте ведёт по ней */
@@ -993,7 +978,7 @@ input[type="checkbox"] {
 
 .card:focus-within {
   border-color: var(--accent);
-  box-shadow: 4px 4px 0 var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* Остальные интерактивные элементы лежат поверх растянутой ссылки */
@@ -1054,11 +1039,11 @@ input[type="checkbox"] {
 .badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
+  border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0;
-  box-shadow: inset 0 0 0 2px currentColor;
+  letter-spacing: 0.5px;
 }
 
 .badge-platform {
@@ -1079,7 +1064,7 @@ input[type="checkbox"] {
 .badge-kind {
   background-color: var(--muted-soft);
   color: var(--muted);
-  box-shadow: inset 0 0 0 2px var(--muted-ring);
+  box-shadow: inset 0 0 0 1px var(--muted-ring);
 }
 
 .card-tags {
@@ -1094,10 +1079,10 @@ input[type="checkbox"] {
 .card-tag {
   display: inline-block;
   padding: 0.25rem 0.75rem;
+  border-radius: 20px;
   font-size: 0.75rem;
   background-color: var(--muted-soft);
   color: var(--muted);
-  box-shadow: inset 0 0 0 2px var(--muted-ring);
 }
 
 /* Тег и кнопка прижаты к низу карточки: в ряду они на одном уровне */
@@ -1113,8 +1098,7 @@ input[type="checkbox"] {
 .card h3 {
   margin: 0.5rem 0;
   font-size: 1rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 .card a {
@@ -1130,7 +1114,7 @@ input[type="checkbox"] {
 
 .card-price {
   font-size: 1.3rem;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--text);
   margin-bottom: 0.5rem;
 }
@@ -1157,7 +1141,7 @@ input[type="checkbox"] {
   font-size: 0.9rem;
   color: var(--danger);
   margin: 0.5rem 0;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .card-desc {
@@ -1187,7 +1171,7 @@ input[type="checkbox"] {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--accent);
-  font-weight: 400;
+  font-weight: 600;
   user-select: none;
 }
 
@@ -1216,10 +1200,10 @@ input[type="checkbox"] {
 .game-page {
   display: block;
   background-color: var(--panel);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 .game-hero {
@@ -1234,6 +1218,7 @@ input[type="checkbox"] {
   flex-shrink: 0;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  border-radius: 8px;
   background-color: var(--surface-alt);
 }
 
@@ -1243,7 +1228,7 @@ input[type="checkbox"] {
   justify-content: center;
 }
 
-/* Заглушка вместо обложки — пиксельный геймпад */
+/* Заглушка вместо обложки — геймпад */
 .placeholder::before {
   content: '';
   width: 3.5rem;
@@ -1260,7 +1245,7 @@ input[type="checkbox"] {
 
 .game-hero-body h2 {
   margin: 0 0 0.75rem;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   line-height: 1.2;
 }
 
@@ -1292,12 +1277,8 @@ input[type="checkbox"] {
 }
 
 .game-offer-price {
-  font-weight: 400;
+  font-weight: 700;
   color: var(--accent);
-}
-
-.game-offers .original {
-  margin: 0 0.5rem;
 }
 
 .game-offer-rub {
@@ -1336,15 +1317,15 @@ table {
 
 th {
   background-color: var(--surface-alt);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   padding: 0.75rem;
   text-align: left;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--accent);
 }
 
 td {
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   padding: 0.75rem;
   word-break: break-word;
 }
@@ -1364,14 +1345,15 @@ tr:hover {
 /* Raw JSON */
 details {
   margin-top: 2rem;
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 1rem;
   background-color: var(--bg);
 }
 
 summary {
   cursor: pointer;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--accent);
   user-select: none;
   padding: 0.5rem 0;
@@ -1383,7 +1365,8 @@ summary:hover {
 
 #raw-json {
   background-color: var(--code-bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   padding: 1rem;
   margin: 1rem 0 0 0;
   font-family: 'Courier New', monospace;
@@ -1425,6 +1408,7 @@ summary:hover {
   background-color: var(--code-bg);
   color: var(--code-text);
   padding: 0.2rem 0.4rem;
+  border-radius: 3px;
   font-family: monospace;
 }
 
@@ -1433,8 +1417,9 @@ summary:hover {
   background-color: var(--warning);
   color: #000;
   padding: 0.5rem 1rem;
+  border-radius: 4px;
   text-decoration: none;
-  font-weight: 400;
+  font-weight: 600;
   margin: 0.5rem 0;
   transition: opacity 0.2s;
 }
@@ -1449,6 +1434,7 @@ summary:hover {
   color: var(--btn-text);
   padding: 0.5rem 1rem;
   border: none;
+  border-radius: 4px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -1470,6 +1456,7 @@ summary:hover {
   margin-top: 1rem;
   padding: 1rem;
   background-color: var(--surface-alt);
+  border-radius: 4px;
 }
 
 .card-dynamics[hidden] {
@@ -1490,7 +1477,7 @@ summary:hover {
 
 .dynamics-error {
   color: var(--danger);
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .dynamics-no-data {
@@ -1529,7 +1516,7 @@ summary:hover {
 
 .periods-table th {
   background-color: var(--panel);
-  font-weight: 400;
+  font-weight: 600;
   color: var(--accent);
 }
 
@@ -1562,7 +1549,7 @@ summary:hover {
   text-align: center;
 }
 
-/* ---- Пиксельные иконки (public/icons/*.svg): маска, цвет берётся из текста вокруг ---- */
+/* ---- Иконки (public/icons/*.svg): маска, цвет берётся из текста вокруг ---- */
 .icon {
   display: inline-block;
   width: 1em;
@@ -1599,76 +1586,6 @@ summary:hover {
 .icon-btn .icon {
   width: 1.3rem;
   height: 1.3rem;
-}
-
-/* ---- Пиксельные элементы управления ---- */
-input[type="checkbox"] {
-  -webkit-appearance: none;
-  appearance: none;
-  flex-shrink: 0;
-  background-color: var(--input-bg);
-  border: 2px solid var(--border);
-  margin: 0;
-}
-
-input[type="checkbox"]:checked {
-  background-color: var(--accent);
-  box-shadow: inset 0 0 0 2px var(--input-bg);
-}
-
-input[type="checkbox"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Стрелка селекта — три ступеньки из градиентов */
-select {
-  -webkit-appearance: none;
-  appearance: none;
-  padding-right: 2rem;
-  background-repeat: no-repeat;
-  background-image:
-    linear-gradient(var(--text), var(--text)),
-    linear-gradient(var(--text), var(--text)),
-    linear-gradient(var(--text), var(--text));
-  background-size: 10px 2px, 6px 2px, 2px 2px;
-  background-position:
-    right 8px top calc(50% - 3px),
-    right 10px top calc(50% - 1px),
-    right 12px top calc(50% + 1px);
-}
-
-input[type="text"],
-input[type="number"],
-select {
-  box-shadow: inset 2px 2px 0 var(--bevel-dark);
-}
-
-* {
-  scrollbar-color: var(--border) var(--surface-alt);
-}
-
-::-webkit-scrollbar {
-  width: 14px;
-  height: 14px;
-}
-
-::-webkit-scrollbar-track {
-  background-color: var(--surface-alt);
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: var(--border);
-  border: 2px solid var(--outline);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--accent);
-}
-
-::selection {
-  background-color: var(--accent);
-  color: var(--btn-text);
 }
 
 /* Mobile Responsive */
@@ -1807,5 +1724,364 @@ select {
   th,
   td {
     padding: 0.5rem;
+  }
+}
+
+/* ---- Пиксельный режим (html[data-style="pixel"]) ----
+   Всё пиксельное оформление включается только здесь. :where() не добавляет специфичности,
+   поэтому правила перебивают базовые по порядку, а не по весу селектора. */
+:root[data-style="pixel"] {
+  --border: #3f3f56;
+  --outline: #000;
+  --shadow: rgba(0, 0, 0, 0.65);
+  --bevel-light: rgba(255, 255, 255, 0.3);
+  --bevel-dark: rgba(0, 0, 0, 0.3);
+}
+
+:root[data-style="pixel"][data-theme="light"] {
+  --border: #8a93a3;
+  --outline: #1a1d21;
+  --shadow: rgba(26, 29, 33, 0.3);
+  --bevel-light: rgba(255, 255, 255, 0.45);
+  --bevel-dark: rgba(0, 0, 0, 0.22);
+}
+
+:where(html[data-style="pixel"]) {
+  /* Пиксельный шрифт широкий: базовый размер меньше обычного, все rem считаются от него */
+  font-size: 12px;
+  font-synthesis: none;
+}
+
+:where(html[data-style="pixel"]),
+:where(html[data-style="pixel"]) body {
+  font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  line-height: 1.8;
+  transition: none;
+  -webkit-font-smoothing: none;
+}
+
+:where(html[data-style="pixel"]) button,
+:where(html[data-style="pixel"]) input,
+:where(html[data-style="pixel"]) select,
+:where(html[data-style="pixel"]) textarea {
+  font-family: inherit;
+}
+
+:where(html[data-style="pixel"]) :focus-visible {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+:where(html[data-style="pixel"]) header {
+  border-bottom: 4px solid var(--border);
+}
+
+:where(html[data-style="pixel"]) #health-dot {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) button {
+  border: 2px solid var(--outline);
+  border-radius: 0;
+  font-weight: 400;
+  transition: none;
+  box-shadow: inset -2px -2px 0 var(--bevel-dark), inset 2px 2px 0 var(--bevel-light), 3px 3px 0 var(--shadow);
+}
+
+:where(html[data-style="pixel"]) button:hover {
+  opacity: 1;
+  transform: none;
+  filter: brightness(1.15);
+}
+
+:where(html[data-style="pixel"]) button:active {
+  transform: translate(3px, 3px);
+  box-shadow: inset 2px 2px 0 var(--bevel-dark), 0 0 0 var(--shadow);
+}
+
+:where(html[data-style="pixel"]) .spinner {
+  border-radius: 0;
+  animation: spin 0.7s steps(8) infinite;
+}
+
+:where(html[data-style="pixel"]) .toast {
+  border: 2px solid var(--border);
+  border-left: 6px solid var(--accent);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+:where(html[data-style="pixel"]) .toast-title {
+  font-weight: 400;
+}
+
+:where(html[data-style="pixel"]) .icon-btn {
+  border: 2px solid var(--border);
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+:where(html[data-style="pixel"]) .stats-section,
+:where(html[data-style="pixel"]) .api-section,
+:where(html[data-style="pixel"]) .catalog-section,
+:where(html[data-style="pixel"]) .results-section,
+:where(html[data-style="pixel"]) .game-page {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+:where(html[data-style="pixel"]) .stat-tile,
+:where(html[data-style="pixel"]) .platform-stat,
+:where(html[data-style="pixel"]) .top-discounts li,
+:where(html[data-style="pixel"]) .api-card {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .stat-value {
+  overflow-wrap: anywhere;
+  font-size: 1.4rem;
+  font-weight: 400;
+}
+
+:where(html[data-style="pixel"]) .platform-name,
+:where(html[data-style="pixel"]) .api-card h3,
+:where(html[data-style="pixel"]) label,
+:where(html[data-style="pixel"]) .chip.is-active,
+:where(html[data-style="pixel"]) .page-btn.is-active,
+:where(html[data-style="pixel"]) .card-price,
+:where(html[data-style="pixel"]) .card-sale,
+:where(html[data-style="pixel"]) .card-history summary,
+:where(html[data-style="pixel"]) .game-offer-price,
+:where(html[data-style="pixel"]) th,
+:where(html[data-style="pixel"]) summary,
+:where(html[data-style="pixel"]) .itad-banner .btn-primary,
+:where(html[data-style="pixel"]) .dynamics-error,
+:where(html[data-style="pixel"]) .periods-table th {
+  font-weight: 400;
+}
+
+:where(html[data-style="pixel"]) input[type="text"],
+:where(html[data-style="pixel"]) input[type="number"],
+:where(html[data-style="pixel"]) select {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .section-toggle {
+  box-shadow: none;
+}
+
+:where(html[data-style="pixel"]) .section-toggle:active {
+  transform: none;
+  box-shadow: none;
+}
+
+:where(html[data-style="pixel"]) .section-toggle::after {
+  transition: none;
+}
+
+:where(html[data-style="pixel"]) .section-toggle:focus-visible {
+  outline: 2px dashed var(--accent);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .wishlist-form input {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .wishlist-avatar {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .chip {
+  font-weight: 400;
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .chip:focus-visible {
+  outline: 2px dashed var(--accent);
+}
+
+:where(html[data-style="pixel"]) .catalog-section > div[id$="-state"],
+:where(html[data-style="pixel"]) #result-state {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .page-btn {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .pager-size select,
+:where(html[data-style="pixel"]) .filter-sort select {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .state-loading {
+  border: 2px solid var(--accent-ring);
+}
+
+:where(html[data-style="pixel"]) .state-error {
+  border: 2px solid var(--danger-ring);
+}
+
+:where(html[data-style="pixel"]) .state-empty {
+  border: 2px solid var(--muted-ring);
+}
+
+:where(html[data-style="pixel"]) .card {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  transition: none;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+:where(html[data-style="pixel"]) .card:hover,
+:where(html[data-style="pixel"]) .card:focus-within {
+  box-shadow: 4px 4px 0 var(--accent-ring);
+}
+
+:where(html[data-style="pixel"]) .badge {
+  border-radius: 0;
+  font-weight: 400;
+  letter-spacing: 0;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+:where(html[data-style="pixel"]) .badge-kind {
+  box-shadow: inset 0 0 0 2px var(--muted-ring);
+}
+
+:where(html[data-style="pixel"]) .card-tag {
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px var(--muted-ring);
+}
+
+:where(html[data-style="pixel"]) .card h3 {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+:where(html[data-style="pixel"]) .game-img {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .game-hero-body h2 {
+  font-size: 1.4rem;
+}
+
+:where(html[data-style="pixel"]) .game-offers .original {
+  margin: 0 0.5rem;
+}
+
+:where(html[data-style="pixel"]) th,
+:where(html[data-style="pixel"]) td {
+  border: 2px solid var(--border);
+}
+
+:where(html[data-style="pixel"]) details {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) #raw-json {
+  border: 2px solid var(--border);
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .itad-banner code {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .itad-banner .btn-primary {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .btn-price-dynamics {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) .card-dynamics {
+  border-radius: 0;
+}
+
+:where(html[data-style="pixel"]) input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+  background-color: var(--input-bg);
+  border: 2px solid var(--border);
+  margin: 0;
+}
+
+:where(html[data-style="pixel"]) input[type="checkbox"]:checked {
+  background-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--input-bg);
+}
+
+:where(html[data-style="pixel"]) input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Стрелка селекта — три ступеньки из градиентов */
+:where(html[data-style="pixel"]) select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(var(--text), var(--text)),
+    linear-gradient(var(--text), var(--text)),
+    linear-gradient(var(--text), var(--text));
+  background-size: 10px 2px, 6px 2px, 2px 2px;
+  background-position:
+    right 8px top calc(50% - 3px),
+    right 10px top calc(50% - 1px),
+    right 12px top calc(50% + 1px);
+}
+
+:where(html[data-style="pixel"]) input[type="text"],
+:where(html[data-style="pixel"]) input[type="number"],
+:where(html[data-style="pixel"]) select {
+  box-shadow: inset 2px 2px 0 var(--bevel-dark);
+}
+
+:where(html[data-style="pixel"]) * {
+  scrollbar-color: var(--border) var(--surface-alt);
+}
+
+:where(html[data-style="pixel"]) ::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+:where(html[data-style="pixel"]) ::-webkit-scrollbar-track {
+  background-color: var(--surface-alt);
+}
+
+:where(html[data-style="pixel"]) ::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border: 2px solid var(--outline);
+}
+
+:where(html[data-style="pixel"]) ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+
+:where(html[data-style="pixel"]) ::selection {
+  background-color: var(--accent);
+  color: var(--btn-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(html[data-style="pixel"]) .spinner {
+    animation: none;
   }
 }

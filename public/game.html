@@ -14,6 +14,10 @@
         stored === 'light' || stored === 'dark'
           ? stored
           : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      // Оформление: по умолчанию пиксельное, системные настройки на него не влияют
+      var style = null;
+      try { style = localStorage.getItem('style'); } catch (e) {}
+      document.documentElement.dataset.style = style === 'plain' ? 'plain' : 'pixel';
     })();
   </script>
 </head>
@@ -25,6 +29,7 @@
         <a class="header-link" href="/"><span class="icon icon-arrow-left" aria-hidden="true"></span> К списку</a>
         <a class="header-link" href="/admin.html">Админка</a>
         <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Переключить тему"></button>
+        <button id="style-toggle" class="icon-btn" type="button" aria-label="Переключить оформление" title="Переключить оформление"></button>
       </div>
     </div>
   </header>
