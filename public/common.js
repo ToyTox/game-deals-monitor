@@ -42,6 +42,25 @@ function fmtDate(v) {
   return new Date(v).toLocaleString('ru-RU');
 }
 
+// Аптайм в секундах: 3725 → «1 ч 2 мин 5 с»
+function fmtUptime(seconds) {
+  const uptime = parseInt(seconds) || 0;
+  const hours = Math.floor(uptime / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+  const secs = uptime % 60;
+  let str = '';
+  if (hours > 0) str += `${hours} ч `;
+  if (minutes > 0 || hours > 0) str += `${minutes} мин `;
+  str += `${secs} с`;
+  return str;
+}
+
+// Примерное время: 16 000 → «~16 с», 218 000 → «~4 мин»
+function fmtApprox(ms) {
+  const s = Math.max(1, Math.round(ms / 1000));
+  return s < 60 ? `~${s} с` : `~${Math.ceil(s / 60)} мин`;
+}
+
 function text(v, fallback = '—') {
   if (!v && v !== 0) return fallback;
   return v;

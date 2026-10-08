@@ -60,8 +60,8 @@ describe('статистика', () => {
   };
 
   it('главная не запрашивает /api/admin/stats', async () => {
-    page = await loadPage({ routes: { ...routes, '/api/admin/health': { uptime: 5 } } });
-    await page.waitFor(() => page.calls('/api/admin/health') > 0, 'health не запрошен');
+    page = await loadPage({ routes });
+    await page.waitFor(() => page.calls('/api/games') > 0, 'игры не запрошены');
     await settle();
     expect(page.calls('/api/admin/stats')).toBe(0);
     expect(page.document.getElementById('stats-tiles')).toBeNull();

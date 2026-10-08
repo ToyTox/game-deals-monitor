@@ -667,28 +667,6 @@ Object.keys(sections).forEach(key => {
   });
 });
 
-// Load health
-async function loadHealth() {
-  try {
-    const data = await api('/api/admin/health');
-    const dot = $('health-dot');
-    const text = $('health-text');
-    dot.className = 'ok';
-    const uptime = parseInt(data.uptime) || 0;
-    const hours = Math.floor(uptime / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
-    const secs = uptime % 60;
-    let uptimeStr = '';
-    if (hours > 0) uptimeStr += `${hours} ч `;
-    if (minutes > 0 || hours > 0) uptimeStr += `${minutes} мин `;
-    uptimeStr += `${secs} с`;
-    text.textContent = `ok · uptime ${uptimeStr}`;
-  } catch (e) {
-    $('health-dot').className = 'fail';
-    $('health-text').textContent = 'недоступен';
-  }
-}
-
 // Load platforms
 async function loadPlatforms() {
   try {
@@ -715,17 +693,7 @@ async function loadPlatforms() {
 }
 
 function reloadAll() {
-  return Promise.all([loadHealth(), loadPlatforms(), loadParseEstimate()]).then(loadSections);
-}
-
-// ---- «Обновлено N мин назад» ----
-let lastRefreshAt = null;
-
-function fmtAgo(date) {
-  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (mins < 1) return 'только что';
-  if (mins < 60) return `${mins} мин назад`;
-  return `${Math.floor(mins / 60)} ч назад`;
+  return Promise.all([loadPlatforms(), loadParseEstimate()]).then(loadSections);
 }
 
 // ---- Оценка длительности парсинга (по последним успешным прогонам) ----
@@ -737,7 +705,7 @@ async function loadParseEstimate() {
   } catch (e) {
     parseEstimate = null;
   }
-  renderRefreshStatus();
+  renderRefreshTitle();
 }
 
 function estimateTotal() {
@@ -748,12 +716,6 @@ function estimateTotal() {
 function fmtClock(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-// Примерное время: 16 000 → «~16 с», 218 000 → «~4 мин»
-function fmtApprox(ms) {
-  const s = Math.max(1, Math.round(ms / 1000));
-  return s < 60 ? `~${s} с` : `~${Math.ceil(s / 60)} мин`;
 }
 
 // Фактическое время: 16 000 → «16 с», 222 000 → «3 мин 42 с»
@@ -771,26 +733,12 @@ function estimateBreakdown() {
     .join(' · ');
 }
 
-function renderRefreshStatus() {
-  const el = $('refresh-status');
+function renderRefreshTitle() {
   const total = estimateTotal();
-  const parts = [];
-  if (lastRefreshAt) parts.push(`Обновлено ${fmtAgo(lastRefreshAt)}`);
-  if (total) parts.push(`парсинг ${fmtApprox(total)}`);
-  el.textContent = parts.join(' · ');
-  el.title = lastRefreshAt ? `Последнее обновление: ${fmtDate(lastRefreshAt)}` : '';
-
   $('refresh-all').title = total
     ? `Запустить парсинг всех площадок. Обычно ${fmtApprox(total)}: ${estimateBreakdown()}`
     : 'Запустить парсинг всех площадок и перечитать данные';
 }
-
-function markRefreshed() {
-  lastRefreshAt = new Date();
-  renderRefreshStatus();
-}
-
-setInterval(renderRefreshStatus, 30000);
 
 // ---- Кнопка «Обновить всё»: парсинг всех площадок + перечитывание данных ----
 function parseSummaryToast(data, elapsed) {
@@ -887,7 +835,6 @@ $('refresh-all').addEventListener('click', async () => {
     if (parseError) {
       showToast('error', 'Не удалось обновить', [{ text: parseError.message, isError: true }]);
     } else {
-      markRefreshed();
       parseSummaryToast(data, Date.now() - started);
     }
   } finally {
@@ -1136,5 +1083,4 @@ async function loadItadStatus() {
   await loadItadStatus();
 
   await reloadAll();
-  markRefreshed();
 })();

@@ -425,6 +425,46 @@ async function loadStats() {
 
 $('btn-stats').addEventListener('click', loadStats);
 
+// Состояние сервиса: health, время последнего обновления, типичная длительность парсинга
+async function loadServiceStatus() {
+  const [health, stats, estimate] = await Promise.allSettled([
+    api('/api/admin/health'),
+    api('/api/admin/stats'),
+    api('/api/admin/parse-estimate')
+  ]);
+
+  const healthText = health.status === 'fulfilled'
+    ? `ok · uptime ${fmtUptime(health.value.uptime)}`
+    : 'недоступен';
+  const lastUpdate = stats.status === 'fulfilled' ? fmtDate(stats.value.lastUpdate) : '—';
+  const est = estimate.status === 'fulfilled' ? estimate.value : null;
+
+  $('service-tiles').innerHTML = `
+    <div class="stat-tile">
+      <div class="stat-value" id="service-health">${esc(healthText)}</div>
+      <div class="stat-label">Статус сервиса</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" id="service-last-update">${esc(lastUpdate)}</div>
+      <div class="stat-label">Последнее обновление данных</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" id="service-parse-total">${est && est.total ? esc(fmtApprox(est.total)) : '—'}</div>
+      <div class="stat-label">Обычно парсинг всех площадок</div>
+    </div>
+  `;
+
+  const platforms = est && est.platforms ? [...est.platforms].sort((a, b) => b.duration - a.duration) : [];
+  $('service-estimate').innerHTML = platforms.length > 0
+    ? '<h3>Длительность парсинга по площадкам</h3>' + platforms.map(p => `
+        <div class="platform-stat">
+          <div class="platform-name">${esc(p.platform)}</div>
+          <div class="platform-stats">${esc(fmtApprox(p.duration))}</div>
+        </div>
+      `).join('')
+    : '';
+}
+
 // Списки платформ в формах ручек
 async function loadPlatforms() {
   try {
@@ -447,6 +487,7 @@ async function loadPlatforms() {
 }
 
 // Init on load (скрипт с defer — DOM уже разобран)
+loadServiceStatus();
 loadStats();
 showEmpty('Выберите ручку API выше — результат появится здесь');
 loadPlatforms();

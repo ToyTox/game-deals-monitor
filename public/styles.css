@@ -192,36 +192,26 @@ header h1 {
 }
 
 .header-link {
-  font-size: 0.9rem;
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  background-color: var(--accent);
+  color: var(--btn-text);
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .header-link:hover {
-  color: var(--accent);
+  opacity: 0.8;
+  transform: translateY(-1px);
 }
 
-.health-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-#health-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-}
-
-#health-dot.ok {
-  background-color: var(--success);
-}
-
-#health-dot.fail {
-  background-color: var(--danger);
+.header-link:active {
+  transform: translateY(0);
 }
 
 button {
@@ -249,19 +239,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Кнопка «Обновить всё» и отметка времени рядом */
-.refresh-group {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.refresh-status {
-  font-size: 0.85rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
+/* Кнопка «Обновить всё» */
 #refresh-all {
   display: inline-flex;
   align-items: center;
@@ -282,6 +260,11 @@ button:disabled {
   border: 2px solid currentColor;
   border-right-color: transparent;
   animation: spin 0.7s steps(8) infinite;
+}
+
+/* display выше перебивает атрибут hidden — без этого спиннер крутится всегда */
+.spinner[hidden] {
+  display: none;
 }
 
 @keyframes spin {
@@ -1716,10 +1699,6 @@ select {
 
   .header-controls {
     flex-wrap: wrap;
-  }
-
-  .refresh-status {
-    white-space: normal;
   }
 
   .toasts {
